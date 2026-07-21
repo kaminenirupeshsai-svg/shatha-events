@@ -1,0 +1,111 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Mirrors packages/shared/src/design-tokens.ts exactly (as "R G B" triplets
+ * so Tailwind's rgb(var(--x) / <alpha-value>) pattern can apply opacity).
+ * Light values = `colors`, dark values = `darkColors`. If the tokens file
+ * changes, update these two blocks — nowhere else.
+ */
+:root {
+  --color-ink: 27 36 32;
+  --color-ink-soft: 75 86 80;
+  --color-emerald: 31 74 61;
+  --color-emerald-deep: 22 53 41;
+  --color-emerald-tint: 228 236 232;
+  --color-amber: 217 164 65;
+  --color-amber-tint: 247 236 214;
+  --color-ivory: 250 247 241;
+  --color-surface: 255 255 255;
+  --color-linen: 241 235 223;
+  --color-line: 228 221 203;
+  --color-terracotta: 180 85 62;
+  --color-terracotta-tint: 243 223 216;
+  --color-slate: 107 118 112;
+  --color-slate-tint: 236 234 228;
+  --color-teal: 46 110 126;
+  --color-teal-tint: 226 238 240;
+
+  color-scheme: light;
+}
+
+.dark {
+  --color-ink: 237 232 220;
+  --color-ink-soft: 183 189 182;
+  --color-emerald: 75 154 128;
+  --color-emerald-deep: 46 102 80;
+  --color-emerald-tint: 27 42 36;
+  --color-amber: 227 181 99;
+  --color-amber-tint: 43 36 24;
+  --color-ivory: 18 24 15;
+  --color-surface: 27 36 32;
+  --color-linen: 31 42 28;
+  --color-line: 42 51 42;
+  --color-terracotta: 217 127 104;
+  --color-terracotta-tint: 46 31 27;
+  --color-slate: 155 166 156;
+  --color-slate-tint: 35 43 34;
+  --color-teal: 92 168 184;
+  --color-teal-tint: 27 42 44;
+
+  color-scheme: dark;
+}
+
+@layer base {
+  * {
+    @apply border-line;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-ivory text-ink font-body antialiased;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply font-display;
+  }
+
+  ::selection {
+    @apply bg-amber-tint text-ink;
+  }
+
+  :focus-visible {
+    outline: 2px solid rgb(var(--color-amber));
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+}
+
+@layer utilities {
+  .eyebrow {
+    @apply font-label text-xs font-semibold uppercase tracking-[0.14em] text-emerald;
+  }
+
+  .section-ivory {
+    @apply bg-ivory;
+  }
+
+  .section-linen {
+    @apply bg-linen;
+  }
+}
+
+/* Respect prefers-reduced-motion globally; Framer Motion variants also check
+   this via useReducedMotion(), this is the CSS-level backstop. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

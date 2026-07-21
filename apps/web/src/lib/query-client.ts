@@ -1,0 +1,32 @@
+import { QueryClient } from '@tanstack/react-query';
+
+export function createQueryClient() {
+  return new QueryClient({
+    defaultOptions: {
+      queries: {
+        staleTime: 30 * 1000,
+        gcTime: 5 * 60 * 1000,
+        retry: 1,
+        refetchOnWindowFocus: false,
+      },
+      mutations: {
+        retry: 0,
+      },
+    },
+  });
+}
+
+// Centralized query keys so invalidation (e.g. from socket-client) never
+// relies on stringly-typed guesses scattered across features/*.
+export const queryKeys = {
+  me: ['me'] as const,
+  services: (query?: Record<string, unknown>) => ['services', query ?? {}] as const,
+  service: (id: string) => ['services', id] as const,
+  myBookings: (query?: Record<string, unknown>) => ['bookings', 'my', query ?? {}] as const,
+  vendorBookings: (query?: Record<string, unknown>) => ['bookings', 'vendor', query ?? {}] as const,
+  allBookings: (query?: Record<string, unknown>) => ['bookings', 'all', query ?? {}] as const,
+  booking: (id: string) => ['bookings', id] as const,
+  notifications: (query?: Record<string, unknown>) => ['notifications', query ?? {}] as const,
+  vendors: (query?: Record<string, unknown>) => ['vendors', query ?? {}] as const,
+  adminStats: ['admin', 'stats'] as const,
+};

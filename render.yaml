@@ -1,0 +1,52 @@
+services:
+  - name: shatha-events-api
+    type: web
+    runtime: node
+    plan: free
+    buildCommand: pnpm install --frozen-lockfile && pnpm --filter @app/api typecheck
+    startCommand: pnpm --filter @app/api start
+    envVars:
+      # Render has no managed MongoDB - point this at a MongoDB Atlas free
+      # (M0) cluster's connection string. Left blank on purpose (sync: false
+      # means "prompt for this in the dashboard, don't store a default").
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: CLIENT_URL
+        value: https://shatha-events-web.onrender.com
+      - key: STORAGE_DRIVER
+        value: local
+      - key: EMAIL_DRIVER
+        value: console
+      # Optional upgrades past the zero-external-account defaults above -
+      # set these in the dashboard only if you want real file storage
+      # (Cloudinary) or real email delivery (Resend). See README.
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: NODE_ENV
+        value: production
+
+  - name: shatha-events-web
+    type: web
+    runtime: node
+    plan: free
+    buildCommand: pnpm install --frozen-lockfile && pnpm --filter @app/web build
+    startCommand: pnpm --filter @app/web start
+    envVars:
+      # NEXT_PUBLIC_* vars are inlined into the client bundle at build time,
+      # so these must be set before "build" runs, not just at runtime.
+      - key: NEXT_PUBLIC_API_URL
+        value: https://shatha-events-api.onrender.com
+      - key: NEXT_PUBLIC_SOCKET_URL
+        value: https://shatha-events-api.onrender.com
+      - key: NODE_ENV
+        value: production
