@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
@@ -9,16 +10,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Reveal } from '@/components/shared/reveal';
 import { formatPriceRange } from '@/lib/utils';
+import { categoryImageUrl } from '@/lib/category-images';
 import { useService } from '@/features/services/hooks';
 import { useMe } from '@/features/auth/hooks';
-
-const CATEGORY_TONE: Record<string, string> = {
-  decor_styling: 'bg-amber-tint',
-  photography_film: 'bg-teal-tint',
-  catering_hospitality: 'bg-terracotta-tint',
-  venue_logistics: 'bg-emerald-tint',
-  entertainment_activities: 'bg-slate-tint',
-};
 
 export default function ServiceDetailPage() {
   const params = useParams<{ id: string }>();
@@ -59,7 +53,16 @@ export default function ServiceDetailPage() {
       </Link>
 
       <Reveal>
-        <div className={`h-64 w-full rounded-2xl ${CATEGORY_TONE[service.category] ?? 'bg-emerald-tint'}`} />
+        <div className="relative h-64 w-full overflow-hidden rounded-2xl">
+          <Image
+            src={service.images[0] ?? categoryImageUrl(service.category, 1000)}
+            alt=""
+            fill
+            sizes="(min-width: 1024px) 48rem, 90vw"
+            className="object-cover"
+            priority
+          />
+        </div>
 
         <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>

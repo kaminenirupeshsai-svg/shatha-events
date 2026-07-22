@@ -42,6 +42,7 @@ export const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
     { href: '/admin/services', label: 'Services', icon: Package },
     { href: '/admin/vendors', label: 'Vendors', icon: Store },
     { href: '/notifications', label: 'Notifications', icon: ListChecks },
+    { href: '/profile', label: 'Profile', icon: UserRound },
     { href: '/settings', label: 'Settings', icon: Settings },
   ],
 };
