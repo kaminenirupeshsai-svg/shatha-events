@@ -1,7 +1,9 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { Pencil, PlusCircle, Search, Trash2 } from 'lucide-react';
 import {
   SERVICE_CATEGORY_LABELS,
@@ -22,6 +24,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { formatPriceRange, cn } from '@/lib/utils';
 import { useDebouncedValue } from '@/lib/use-debounced-value';
+import { categoryImageUrl } from '@/lib/category-images';
 import { useMe } from '@/features/auth/hooks';
 import { useCreateService, useDeleteService, useServices, useUpdateService } from '@/features/services/hooks';
 import { ServiceForm, type ServiceFormValues } from '@/features/services/service-form';
@@ -35,9 +38,12 @@ const SORT_OPTIONS = [
 export default function ServicesPage() {
   const { data: user } = useMe();
   const isVendor = user?.role === 'vendor';
+  const searchParams = useSearchParams();
 
-  const [search, setSearch] = useState('');
-  const [category, setCategory] = useState<ServiceCategory | 'all'>('all');
+  const [search, setSearch] = useState(() => searchParams?.get('q') ?? '');
+  const [category, setCategory] = useState<ServiceCategory | 'all'>(
+    () => (searchParams?.get('category') as ServiceCategory | null) ?? 'all',
+  );
   const [sort, setSort] = useState<(typeof SORT_OPTIONS)[number]['value']>('newest');
   const [page, setPage] = useState(1);
   const debouncedSearch = useDebouncedValue(search, 400);
@@ -218,8 +224,14 @@ function ManageServiceCard({ service }: { service: ServiceDto }) {
 
   return (
     <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-card">
-      <Link href={`/services/${service.id}`} className="block">
-        <div className={cn('h-32 w-full', service.isActive ? 'bg-emerald-tint' : 'bg-slate-tint')} />
+      <Link href={`/services/${service.id}`} className="relative block h-32 w-full overflow-hidden">
+        <Image
+          src={service.images[0] ?? categoryImageUrl(service.category, 500)}
+          alt=""
+          fill
+          sizes="(min-width: 1024px) 30vw, (min-width: 640px) 45vw, 90vw"
+          className={cn('object-cover', !service.isActive && 'opacity-50 grayscale')}
+        />
       </Link>
       <div className="flex flex-1 flex-col gap-1.5 p-5">
         <p className="eyebrow">{SERVICE_CATEGORY_LABELS[service.category]}</p>
