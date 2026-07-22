@@ -156,6 +156,11 @@ export function BookingForm({ onSubmit, isSubmitting, preselectedServiceId }: Bo
         <Label htmlFor="services-group">Services you&apos;re interested in</Label>
         {servicesLoading ? (
           <p className="text-sm text-ink-soft">Loading services…</p>
+        ) : services.length === 0 ? (
+          <p className="text-sm text-terracotta">
+            No services are listed yet, so a booking request can&apos;t be submitted right now — please check back
+            once vendors have added their services.
+          </p>
         ) : (
           <div id="services-group" className="flex flex-wrap gap-2">
             {services.map((service) => {
@@ -202,7 +207,12 @@ export function BookingForm({ onSubmit, isSubmitting, preselectedServiceId }: Bo
         {errors.message && <p className="mt-1.5 text-sm text-terracotta">{errors.message.message}</p>}
       </div>
 
-      <Button type="submit" className="w-full" isLoading={isSubmitting}>
+      <Button
+        type="submit"
+        className="w-full"
+        isLoading={isSubmitting}
+        disabled={!servicesLoading && services.length === 0}
+      >
         Submit booking request
       </Button>
     </form>
