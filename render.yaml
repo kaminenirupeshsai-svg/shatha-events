@@ -20,10 +20,18 @@ services:
       - key: STORAGE_DRIVER
         value: local
       - key: EMAIL_DRIVER
-        value: console
+        value: gmail
+      # Real email needs a Gmail App Password (myaccount.google.com/apppasswords,
+      # requires 2-Step Verification) - NOT your real Gmail password. Until
+      # these are set, email sends fail silently (logged, not thrown - see
+      # email.service.ts) so the app still works, it just won't deliver mail.
+      - key: GMAIL_USER
+        sync: false
+      - key: GMAIL_APP_PASSWORD
+        sync: false
       # Optional upgrades past the zero-external-account defaults above -
       # set these in the dashboard only if you want real file storage
-      # (Cloudinary) or real email delivery (Resend). See README.
+      # (Cloudinary) instead of local disk, or Resend instead of Gmail SMTP.
       - key: CLOUDINARY_CLOUD_NAME
         sync: false
       - key: CLOUDINARY_API_KEY

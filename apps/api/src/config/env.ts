@@ -17,8 +17,12 @@ const EnvSchema = z.object({
   CLOUDINARY_CLOUD_NAME: z.string().optional(),
   CLOUDINARY_API_KEY: z.string().optional(),
   CLOUDINARY_API_SECRET: z.string().optional(),
-  EMAIL_DRIVER: z.enum(['console', 'resend']).default('console'),
+  EMAIL_DRIVER: z.enum(['console', 'resend', 'gmail']).default('console'),
   RESEND_API_KEY: z.string().optional(),
+  GMAIL_USER: z.string().email().optional(),
+  // Not your real Gmail password - a 16-character Google "App Password"
+  // (myaccount.google.com/apppasswords, requires 2-Step Verification).
+  GMAIL_APP_PASSWORD: z.string().optional(),
 });
 
 function loadEnv() {

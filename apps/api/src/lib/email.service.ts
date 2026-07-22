@@ -66,9 +66,53 @@ class ResendEmailService implements EmailService {
   }
 }
 
+/**
+ * Gmail SMTP driver via Nodemailer, authenticated with a Google "App
+ * Password" (myaccount.google.com/apppasswords) rather than the real
+ * account password - the account password won't work here since Google
+ * requires 2-Step Verification + an app password for SMTP access. The
+ * transporter is created lazily and reused across sends.
+ */
+class GmailEmailService implements EmailService {
+  private transporterPromise: ReturnType<GmailEmailService['createTransporter']> | null = null;
+
+  private async createTransporter() {
+    if (!env.GMAIL_USER || !env.GMAIL_APP_PASSWORD) {
+      throw new Error('EMAIL_DRIVER=gmail requires GMAIL_USER and GMAIL_APP_PASSWORD to be set');
+    }
+    const nodemailer = await import('nodemailer');
+    return nodemailer.default.createTransport({
+      service: 'gmail',
+      auth: { user: env.GMAIL_USER, pass: env.GMAIL_APP_PASSWORD },
+    });
+  }
+
+  async send(message: EmailMessage): Promise<void> {
+    if (!this.transporterPromise) {
+      this.transporterPromise = this.createTransporter();
+    }
+    const transporter = await this.transporterPromise;
+    try {
+      await transporter.sendMail({
+        from: `Shatha Events <${env.GMAIL_USER}>`,
+        to: message.to,
+        subject: message.subject,
+        text: message.body,
+      });
+      logger.info({ to: message.to }, 'Email sent via Gmail');
+    } catch (err) {
+      logger.error({ err, to: message.to }, 'Gmail email send failed');
+      throw err;
+    }
+  }
+}
+
 function createEmailService(): EmailService {
   if (env.EMAIL_DRIVER === 'resend') {
     return new ResendEmailService();
+  }
+  if (env.EMAIL_DRIVER === 'gmail') {
+    return new GmailEmailService();
   }
   return new ConsoleEmailService();
 }
