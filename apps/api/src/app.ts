@@ -4,6 +4,7 @@ import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import mongoSanitize from 'express-mongo-sanitize';
 import { env } from './config/env.js';
+import { getDbStatus } from './config/db.js';
 import { logger } from './lib/logger.js';
 import { UPLOADS_DIR } from './lib/storage.js';
 import { apiRateLimiter } from './middleware/rate-limit.js';
@@ -39,9 +40,11 @@ if (env.NODE_ENV !== 'test') {
 // Only meaningfully used when STORAGE_DRIVER=local; harmless dead weight otherwise.
 app.use('/uploads', express.static(UPLOADS_DIR));
 
-// Unauthenticated, unrate-limited liveness probe.
+// Unauthenticated, unrate-limited liveness probe. Reports real Mongo
+// connection state (not just "the process is up") so a bad MONGODB_URI is
+// diagnosable with one curl instead of only visible in platform logs.
 app.get('/api/health', (_req, res) => {
-  res.status(200).json({ status: 'ok', time: new Date().toISOString() });
+  res.status(200).json({ status: 'ok', time: new Date().toISOString(), mongo: getDbStatus() });
 });
 
 app.use('/api', apiRateLimiter);
