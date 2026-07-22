@@ -6,8 +6,8 @@ build/
 .env
 .env.local
 .env*.local
-uploads/
-!uploads/.gitkeep
+/apps/api/uploads/
+!/apps/api/uploads/.gitkeep
 *.log
 .email-log.txt
 .DS_Store
