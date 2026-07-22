@@ -1,11 +1,22 @@
 'use client';
 
+import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { LogOut, Settings, User as UserIcon } from 'lucide-react';
 import type { UserDto } from '@app/shared';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { ThemeToggle } from './theme-toggle';
 import { MobileNav } from './mobile-nav';
 import { NotificationBell } from '@/features/notifications/notification-bell';
+import { useLogout } from '@/features/auth/hooks';
 import { initials } from '@/lib/utils';
 
 const TITLE_MAP: [pattern: RegExp, title: string][] = [
@@ -46,14 +57,61 @@ export function Topbar({ user }: { user: UserDto }) {
       <div className="flex items-center gap-3">
         <ThemeToggle />
         <NotificationBell />
-        <div className="ml-1 flex items-center gap-2.5">
+        <AccountMenu user={user} />
+      </div>
+    </header>
+  );
+}
+
+function AccountMenu({ user }: { user: UserDto }) {
+  const logout = useLogout();
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          aria-label="Account menu"
+          className="ml-1 flex items-center gap-2.5 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber"
+        >
           <Avatar>
             {user.avatarUrl && <AvatarImage src={user.avatarUrl} alt="" />}
             <AvatarFallback>{initials(user.name)}</AvatarFallback>
           </Avatar>
           <span className="hidden text-sm font-medium text-ink sm:inline">{user.name}</span>
-        </div>
-      </div>
-    </header>
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuLabel className="normal-case tracking-normal">
+          <span className="block text-sm font-medium text-ink">{user.name}</span>
+          <span className="block truncate text-xs font-normal text-ink-soft">{user.email}</span>
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link href="/profile">
+            <UserIcon className="h-4 w-4" aria-hidden="true" />
+            Profile
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link href="/settings">
+            <Settings className="h-4 w-4" aria-hidden="true" />
+            Settings
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          onSelect={(e) => {
+            e.preventDefault();
+            logout.mutate();
+          }}
+          disabled={logout.isPending}
+          className="text-terracotta data-[highlighted]:bg-terracotta-tint"
+        >
+          <LogOut className="h-4 w-4" aria-hidden="true" />
+          {logout.isPending ? 'Logging out…' : 'Log out'}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
