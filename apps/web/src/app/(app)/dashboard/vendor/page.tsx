@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { CalendarCheck, Package, PlusCircle, TrendingUp } from 'lucide-react';
+import { CalendarCheck, Clock, Package, PlusCircle, ShieldAlert, TrendingUp } from 'lucide-react';
 import { PageHeader } from '@/components/shared/page-header';
 import { BookingCard } from '@/components/shared/booking-card';
 import { StatCard } from '@/components/charts/stat-card';
@@ -38,6 +38,21 @@ export default function VendorDashboardPage() {
           </Button>
         }
       />
+
+      {user && user.vendorStatus !== 'approved' && (
+        <div className="flex items-start gap-3 rounded-2xl border border-amber/40 bg-amber-tint px-4 py-3.5">
+          {user.vendorStatus === 'pending' ? (
+            <Clock className="mt-0.5 h-4 w-4 shrink-0 text-[#8C6A22] dark:text-amber" aria-hidden="true" />
+          ) : (
+            <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-[#8C6A22] dark:text-amber" aria-hidden="true" />
+          )}
+          <p className="text-sm text-[#8C6A22] dark:text-amber">
+            {user.vendorStatus === 'pending'
+              ? "Your vendor account is awaiting admin approval — you'll be able to list services once it's approved."
+              : 'Your vendor application was not approved, so you cannot list services. Contact us if you think this was a mistake.'}
+          </p>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {bookingsLoading || servicesLoading ? (

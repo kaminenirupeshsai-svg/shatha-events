@@ -19,6 +19,7 @@ export const endpoints = {
     updateSettings: '/api/users/me/settings',
     avatar: '/api/users/me/avatar',
     list: '/api/users', // ?role=vendor for the admin vendor directory
+    vendorStatus: (id: string) => `/api/users/${id}/vendor-status`,
   },
   services: {
     list: '/api/services',

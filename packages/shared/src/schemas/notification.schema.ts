@@ -5,6 +5,7 @@ export const NotificationTypeSchema = z.enum([
   'booking_status_changed',
   'new_booking',
   'task_assigned',
+  'vendor_status_changed',
 ]);
 export type NotificationType = z.infer<typeof NotificationTypeSchema>;
 

@@ -13,7 +13,7 @@ import { useSignup } from './hooks';
 
 const ROLES: { value: SignupInput['role']; label: string; description: string; icon: typeof User }[] = [
   { value: 'client', label: "I'm a client", description: 'Book vendors for my event', icon: User },
-  { value: 'vendor', label: "I'm a vendor", description: 'List my services for booking', icon: Briefcase },
+  { value: 'vendor', label: "I'm a vendor", description: 'List my services — requires admin approval', icon: Briefcase },
 ];
 
 export function SignupForm() {

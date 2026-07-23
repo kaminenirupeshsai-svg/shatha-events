@@ -2,6 +2,8 @@ import type { Request, Response } from 'express';
 import { asyncHandler } from '../../lib/async-handler.js';
 import { AppError } from '../../lib/app-error.js';
 import { saveUpload } from '../../lib/storage.js';
+import { buildPaginatedResult } from '../../lib/pagination.js';
+import { toUserDto, toVendorDirectoryDto } from './users.mapper.js';
 import * as usersService from './users.service.js';
 import type { ListUsersParams } from './users.service.js';
 
@@ -40,17 +42,34 @@ export const uploadAvatar = asyncHandler(async (req: Request, res: Response) => 
 
 // GET /api/users - vendor-directory browsing (?role=vendor) is open to any
 // signed-in user; listing any other slice of the user base is admin-only.
+// The two paths intentionally return different shapes: the public directory
+// only shows approved vendors and excludes email/phone (toVendorDirectoryDto)
+// - a browsing client has no business seeing another user's contact details.
+// The admin path returns the full toUserDto, including vendorStatus, since
+// that's what the approve/reject UI acts on.
 export const list = asyncHandler(async (req: Request, res: Response) => {
   const query = req.query as unknown as ListUsersParams & { q?: string };
   const isVendorDirectoryLookup = query.role === 'vendor';
   if (!isVendorDirectoryLookup && req.user!.role !== 'admin') {
     throw AppError.forbidden('Only admins can list users');
   }
-  const result = await usersService.listUsers(query);
-  res.status(200).json(result);
+
+  if (isVendorDirectoryLookup && req.user!.role !== 'admin') {
+    const { docs, total } = await usersService.listUserDocs({ ...query, vendorStatus: 'approved' });
+    res.status(200).json(buildPaginatedResult(docs.map(toVendorDirectoryDto), total, query.page, query.limit));
+    return;
+  }
+
+  const { docs, total } = await usersService.listUserDocs(query);
+  res.status(200).json(buildPaginatedResult(docs.map(toUserDto), total, query.page, query.limit));
 });
 
 export const getById = asyncHandler(async (req: Request, res: Response) => {
   const user = await usersService.getUserById(req.params.id as string);
+  res.status(200).json(user);
+});
+
+export const updateVendorStatus = asyncHandler(async (req: Request, res: Response) => {
+  const user = await usersService.updateVendorStatus(req.params.id as string, req.body.status);
   res.status(200).json(user);
 });

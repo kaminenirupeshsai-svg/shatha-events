@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { Pencil, PlusCircle, Search, Trash2 } from 'lucide-react';
+import { Clock, Pencil, PlusCircle, Search, ShieldAlert, Trash2 } from 'lucide-react';
 import {
   SERVICE_CATEGORY_LABELS,
   ServiceCategorySchema,
@@ -62,6 +62,27 @@ export default function ServicesPage() {
 
   const { data, isLoading } = useServices(query);
   const services = data?.items ?? [];
+
+  // Pending/rejected vendors have no listings and can't create any yet -
+  // show why instead of an empty "create your first listing" prompt that
+  // would just 403 on submit (see services.service.ts createService's gate).
+  if (isVendor && user && user.vendorStatus !== 'approved') {
+    const pending = user.vendorStatus === 'pending';
+    return (
+      <div className="space-y-6">
+        <PageHeader eyebrow="Vendor listings" title="My services" subtitle="Manage the listings clients see when they browse Shatha Events." />
+        <EmptyState
+          icon={pending ? Clock : ShieldAlert}
+          title={pending ? 'Your vendor account is awaiting approval' : 'Your vendor application was not approved'}
+          description={
+            pending
+              ? "An admin needs to review and approve your account before you can list services. We'll notify you as soon as that happens."
+              : 'Contact us if you think this was a mistake.'
+          }
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

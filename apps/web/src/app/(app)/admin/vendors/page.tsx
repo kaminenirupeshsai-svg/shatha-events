@@ -2,15 +2,43 @@
 
 import { useState } from 'react';
 import { Search, Store } from 'lucide-react';
+import type { UserDto } from '@app/shared';
 import { PageHeader } from '@/components/shared/page-header';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { Pagination } from '@/components/ui/pagination';
 import { EmptyState } from '@/components/ui/empty-state';
 import { TableRowSkeleton } from '@/components/ui/skeleton';
-import { formatDate, initials } from '@/lib/utils';
+import { cn, formatDate, initials } from '@/lib/utils';
 import { useDebouncedValue } from '@/lib/use-debounced-value';
-import { useVendors } from '@/features/vendors/hooks';
+import { useUpdateVendorStatus, useVendors } from '@/features/vendors/hooks';
+
+const VENDOR_STATUS_CLASSES: Record<UserDto['vendorStatus'], string> = {
+  pending: 'bg-amber-tint text-[#8C6A22] dark:text-amber',
+  approved: 'bg-emerald-tint text-emerald',
+  rejected: 'bg-terracotta-tint text-terracotta',
+};
+
+const VENDOR_STATUS_LABELS: Record<UserDto['vendorStatus'], string> = {
+  pending: 'Pending',
+  approved: 'Approved',
+  rejected: 'Rejected',
+};
+
+function VendorStatusBadge({ status }: { status: UserDto['vendorStatus'] }) {
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center gap-1.5 rounded-full px-3 py-1 font-label text-[11px] font-semibold uppercase tracking-wide',
+        VENDOR_STATUS_CLASSES[status],
+      )}
+    >
+      <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden="true" />
+      {VENDOR_STATUS_LABELS[status]}
+    </span>
+  );
+}
 
 export default function AdminVendorsPage() {
   const [search, setSearch] = useState('');
@@ -19,6 +47,7 @@ export default function AdminVendorsPage() {
 
   const { data, isLoading } = useVendors({ q: debouncedSearch || undefined, page, limit: 10 });
   const vendors = data?.items ?? [];
+  const updateVendorStatus = useUpdateVendorStatus();
 
   return (
     <div className="space-y-6">
@@ -42,7 +71,7 @@ export default function AdminVendorsPage() {
         <table className="w-full min-w-[640px] text-left text-sm">
           <thead>
             <tr className="border-b border-line">
-              {['Vendor', 'Email', 'Phone', 'Joined'].map((col) => (
+              {['Vendor', 'Email', 'Phone', 'Status', 'Joined', ''].map((col) => (
                 <th key={col} className="px-4 py-3 font-label text-xs font-semibold uppercase tracking-wide text-ink-soft">
                   {col}
                 </th>
@@ -51,10 +80,10 @@ export default function AdminVendorsPage() {
           </thead>
           <tbody>
             {isLoading ? (
-              Array.from({ length: 6 }).map((_, i) => <TableRowSkeleton key={i} columns={4} />)
+              Array.from({ length: 6 }).map((_, i) => <TableRowSkeleton key={i} columns={6} />)
             ) : vendors.length === 0 ? (
               <tr>
-                <td colSpan={4} className="px-4 py-12">
+                <td colSpan={6} className="px-4 py-12">
                   <EmptyState icon={Store} title="No vendors found" description="Try a different search term." />
                 </td>
               </tr>
@@ -72,7 +101,34 @@ export default function AdminVendorsPage() {
                   </td>
                   <td className="px-4 py-3.5 text-ink-soft">{vendor.email}</td>
                   <td className="px-4 py-3.5 text-ink-soft">{vendor.phone ?? '—'}</td>
+                  <td className="px-4 py-3.5">
+                    <VendorStatusBadge status={vendor.vendorStatus} />
+                  </td>
                   <td className="px-4 py-3.5 text-ink-soft">{formatDate(vendor.createdAt)}</td>
+                  <td className="px-4 py-3.5">
+                    <div className="flex justify-end gap-2">
+                      {vendor.vendorStatus !== 'approved' && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          isLoading={updateVendorStatus.isPending && updateVendorStatus.variables?.id === vendor.id}
+                          onClick={() => updateVendorStatus.mutate({ id: vendor.id, status: 'approved' })}
+                        >
+                          Approve
+                        </Button>
+                      )}
+                      {vendor.vendorStatus !== 'rejected' && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          isLoading={updateVendorStatus.isPending && updateVendorStatus.variables?.id === vendor.id}
+                          onClick={() => updateVendorStatus.mutate({ id: vendor.id, status: 'rejected' })}
+                        >
+                          Reject
+                        </Button>
+                      )}
+                    </div>
+                  </td>
                 </tr>
               ))
             )}

@@ -45,6 +45,9 @@ export async function signup(input: SignupInput): Promise<AuthResult> {
     email: input.email,
     passwordHash,
     role: input.role,
+    // New vendor accounts require admin approval before they can list
+    // services - see the gate in services.service.ts createService().
+    vendorStatus: input.role === 'vendor' ? 'pending' : 'approved',
   });
   return issueTokens(user);
 }

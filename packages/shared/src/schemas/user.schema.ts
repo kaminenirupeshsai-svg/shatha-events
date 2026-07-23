@@ -4,11 +4,15 @@ import { MongoIdSchema } from './common.schema.js';
 export const UserRoleSchema = z.enum(['client', 'vendor', 'admin']);
 export type UserRole = z.infer<typeof UserRoleSchema>;
 
+export const VendorStatusSchema = z.enum(['pending', 'approved', 'rejected']);
+export type VendorStatus = z.infer<typeof VendorStatusSchema>;
+
 export const UserDtoSchema = z.object({
   id: MongoIdSchema,
   name: z.string(),
   email: z.string().email(),
   role: UserRoleSchema,
+  vendorStatus: VendorStatusSchema,
   phone: z.string().nullable(),
   avatarUrl: z.string().nullable(),
   theme: z.enum(['light', 'dark', 'system']),
@@ -16,6 +20,22 @@ export const UserDtoSchema = z.object({
   createdAt: z.string(),
 });
 export type UserDto = z.infer<typeof UserDtoSchema>;
+
+// The public vendor-directory shape (GET /api/users?role=vendor, open to any
+// signed-in user) - deliberately excludes email/phone. See users.mapper.ts.
+export const VendorDirectoryDtoSchema = z.object({
+  id: MongoIdSchema,
+  name: z.string(),
+  role: UserRoleSchema,
+  avatarUrl: z.string().nullable(),
+  createdAt: z.string(),
+});
+export type VendorDirectoryDto = z.infer<typeof VendorDirectoryDtoSchema>;
+
+export const UpdateVendorStatusInputSchema = z.object({
+  status: z.enum(['approved', 'rejected']),
+});
+export type UpdateVendorStatusInput = z.infer<typeof UpdateVendorStatusInputSchema>;
 
 export const UpdateProfileInputSchema = z.object({
   name: z.string().trim().min(2, 'Name is too short').max(80).optional(),

@@ -1,6 +1,7 @@
 import type { CreateServiceInput, ServiceListQuery, UpdateServiceInput } from '@app/shared';
 import { Service } from '../../models/Service.js';
 import type { ServiceDoc } from '../../models/Service.js';
+import { User } from '../../models/User.js';
 import { AppError } from '../../lib/app-error.js';
 import { buildPaginatedResult, escapeRegex } from '../../lib/pagination.js';
 import type { AuthUser } from '../../middleware/auth.js';
@@ -48,6 +49,17 @@ export async function getServiceById(id: string, viewer?: AuthUser) {
 }
 
 export async function createService(vendor: AuthUser, input: CreateServiceInput) {
+  // Admins aren't subject to vendor vetting. Vendors need an approved
+  // account - checked fresh from the DB rather than the JWT, since
+  // vendorStatus can change mid-session and the access token has no opinion
+  // on it (see auth/jwt.ts's payload shape).
+  if (vendor.role !== 'admin') {
+    const account = await User.findById(vendor.id).select('vendorStatus');
+    if (account?.vendorStatus !== 'approved') {
+      throw AppError.forbidden('Your vendor account is pending admin approval', 'VENDOR_NOT_APPROVED');
+    }
+  }
+
   const doc = await Service.create({
     title: input.title,
     category: input.category,

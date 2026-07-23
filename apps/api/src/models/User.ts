@@ -13,6 +13,10 @@ const UserSchema = new Schema(
     },
     passwordHash: { type: String, required: true, select: false },
     role: { type: String, enum: ['client', 'vendor', 'admin'], required: true },
+    // Only meaningful for role: 'vendor' - defaults to 'approved' so it's a
+    // no-op for client/admin accounts. signup() explicitly overrides this to
+    // 'pending' for new vendor signups; see auth.service.ts.
+    vendorStatus: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'approved' },
     phone: { type: String, default: null },
     avatarUrl: { type: String, default: null },
     theme: { type: String, enum: ['light', 'dark', 'system'], default: 'system' },

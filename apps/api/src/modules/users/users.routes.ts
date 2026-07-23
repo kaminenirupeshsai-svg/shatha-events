@@ -6,6 +6,7 @@ import {
   UpdatePasswordInputSchema,
   UpdateProfileInputSchema,
   UpdateSettingsInputSchema,
+  UpdateVendorStatusInputSchema,
   UserRoleSchema,
 } from '@app/shared';
 import { auth } from '../../middleware/auth.js';
@@ -36,4 +37,11 @@ usersRouter.get(
   requireRole('admin'),
   validate(z.object({ id: MongoIdSchema }), 'params'),
   usersController.getById,
+);
+usersRouter.patch(
+  '/:id/vendor-status',
+  requireRole('admin'),
+  validate(z.object({ id: MongoIdSchema }), 'params'),
+  validate(UpdateVendorStatusInputSchema),
+  usersController.updateVendorStatus,
 );

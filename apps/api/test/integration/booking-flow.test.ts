@@ -111,31 +111,66 @@ describe.skipIf(!mongoAvailable)('booking lifecycle (integration, requires Mongo
     expect(res.body.code).toBe('INVALID_CREDENTIALS');
   });
 
-  it('signs up a vendor and creates a service', async () => {
-    const signup = await request(app)
-      .post('/api/auth/signup')
-      .send({ name: 'Integration Vendor', email: vendorEmail, password, role: 'vendor' });
-    vendorToken = signup.body.accessToken;
-
-    const res = await request(app)
-      .post('/api/services')
-      .set('Authorization', `Bearer ${vendorToken}`)
-      .send({
-        title: 'Integration Test Photography',
-        category: 'photography_film',
-        description: 'A service created purely for the automated integration test suite.',
-        priceRange: { min: 100, max: 500 },
-      });
-
-    expect(res.status).toBe(201);
-    expect(res.body.vendorName).toBe('Integration Vendor');
-    serviceId = res.body.id;
-  });
-
   it('logs the admin in', async () => {
     const res = await request(app).post('/api/auth/login').send({ email: adminEmail, password });
     expect(res.status).toBe(200);
     adminToken = res.body.accessToken;
+  });
+
+  it('signs up a vendor as pending, blocks service creation until an admin approves the account', async () => {
+    const signup = await request(app)
+      .post('/api/auth/signup')
+      .send({ name: 'Integration Vendor', email: vendorEmail, password, role: 'vendor' });
+    expect(signup.status).toBe(201);
+    expect(signup.body.user.vendorStatus).toBe('pending');
+    vendorToken = signup.body.accessToken;
+    const vendorId = signup.body.user.id;
+
+    const serviceInput = {
+      title: 'Integration Test Photography',
+      category: 'photography_film',
+      description: 'A service created purely for the automated integration test suite.',
+      priceRange: { min: 100, max: 500 },
+    };
+
+    const blocked = await request(app)
+      .post('/api/services')
+      .set('Authorization', `Bearer ${vendorToken}`)
+      .send(serviceInput);
+    expect(blocked.status).toBe(403);
+    expect(blocked.body.code).toBe('VENDOR_NOT_APPROVED');
+
+    // Not yet approved - must not appear in the public vendor directory, and
+    // that directory must never expose email/phone to a non-admin caller.
+    const directoryBefore = await request(app)
+      .get('/api/users?role=vendor')
+      .set('Authorization', `Bearer ${clientToken}`);
+    expect(directoryBefore.status).toBe(200);
+    expect(directoryBefore.body.items.some((v: { id: string }) => v.id === vendorId)).toBe(false);
+
+    const approve = await request(app)
+      .patch(`/api/users/${vendorId}/vendor-status`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ status: 'approved' });
+    expect(approve.status).toBe(200);
+    expect(approve.body.vendorStatus).toBe('approved');
+
+    const directoryAfter = await request(app)
+      .get('/api/users?role=vendor')
+      .set('Authorization', `Bearer ${clientToken}`);
+    const listedVendor = directoryAfter.body.items.find((v: { id: string }) => v.id === vendorId);
+    expect(listedVendor).toBeDefined();
+    expect(listedVendor.email).toBeUndefined();
+    expect(listedVendor.phone).toBeUndefined();
+
+    const res = await request(app)
+      .post('/api/services')
+      .set('Authorization', `Bearer ${vendorToken}`)
+      .send(serviceInput);
+
+    expect(res.status).toBe(201);
+    expect(res.body.vendorName).toBe('Integration Vendor');
+    serviceId = res.body.id;
   });
 
   it('lets the client create a booking against the vendor’s service', async () => {
