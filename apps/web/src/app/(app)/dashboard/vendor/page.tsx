@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { BookingCardSkeleton, StatCardSkeleton } from '@/components/ui/skeleton';
 import { StaggerItem, StaggerReveal } from '@/components/shared/reveal';
+import { VerificationBanner } from '@/components/shared/verification-banner';
 import { useVendorBookings } from '@/features/bookings/hooks';
 import { useServices } from '@/features/services/hooks';
 import { useMe } from '@/features/auth/hooks';
@@ -38,6 +39,8 @@ export default function VendorDashboardPage() {
           </Button>
         }
       />
+
+      {user && !user.emailVerified && <VerificationBanner />}
 
       {user && user.vendorStatus !== 'approved' && (
         <div className="flex items-start gap-3 rounded-2xl border border-amber/40 bg-amber-tint px-4 py-3.5">

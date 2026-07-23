@@ -23,6 +23,13 @@ const UserSchema = new Schema(
     notifyEmail: { type: Boolean, default: true },
     passwordResetTokenHash: { type: String, default: null, select: false },
     passwordResetExpiresAt: { type: Date, default: null, select: false },
+    // Defaults true so every account that already exists is unaffected -
+    // signup() explicitly overrides this to false for every new signup.
+    // See the gates in services.service.ts createService and
+    // bookings.service.ts createBooking.
+    emailVerified: { type: Boolean, default: true },
+    emailVerificationTokenHash: { type: String, default: null, select: false },
+    emailVerificationExpiresAt: { type: Date, default: null, select: false },
   },
   { timestamps: true },
 );

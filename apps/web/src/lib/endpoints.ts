@@ -11,6 +11,8 @@ export const endpoints = {
     logout: '/api/auth/logout',
     forgotPassword: '/api/auth/forgot-password',
     resetPassword: '/api/auth/reset-password',
+    verifyEmail: '/api/auth/verify-email',
+    resendVerification: '/api/auth/resend-verification',
   },
   users: {
     me: '/api/users/me',

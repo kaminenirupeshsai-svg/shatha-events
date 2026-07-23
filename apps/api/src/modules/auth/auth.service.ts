@@ -13,6 +13,7 @@ import { toUserDto } from '../users/users.mapper.js';
 
 const BCRYPT_ROUNDS = 12;
 const PASSWORD_RESET_TTL_MS = 60 * 60 * 1000; // 1 hour
+const EMAIL_VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours - longer than the password-reset TTL since people don't always check email right away
 
 interface AuthResult {
   user: ReturnType<typeof toUserDto>;
@@ -34,6 +35,31 @@ async function issueTokens(user: UserDoc): Promise<AuthResult> {
   };
 }
 
+/**
+ * Generates a fresh verification token, persists its hash + expiry on the
+ * user, and emails the link. Shared by signup() and resendVerification() so
+ * there's exactly one place that does this. Never throws on an email-provider
+ * failure - same defensive shape as forgotPassword's send below - a mail
+ * outage must never break signup itself.
+ */
+async function sendVerificationEmail(user: UserDoc): Promise<void> {
+  const rawToken = generateRawToken();
+  user.emailVerificationTokenHash = hashToken(rawToken);
+  user.emailVerificationExpiresAt = new Date(Date.now() + EMAIL_VERIFICATION_TTL_MS);
+  await user.save();
+
+  const verifyUrl = `${env.CLIENT_URL}/verify-email?token=${rawToken}`;
+  try {
+    await emailService.send({
+      to: user.email,
+      subject: 'Verify your Shatha Events email address',
+      body: `Hi ${user.name},\n\nConfirm your email address to book or list services on Shatha Events. This link expires in 24 hours.\n\n${verifyUrl}\n\nIf you didn't create this account, you can safely ignore this email.`,
+    });
+  } catch (err) {
+    logger.error({ err }, 'Failed to send verification email');
+  }
+}
+
 export async function signup(input: SignupInput): Promise<AuthResult> {
   const existing = await User.findOne({ email: input.email });
   if (existing) {
@@ -48,8 +74,33 @@ export async function signup(input: SignupInput): Promise<AuthResult> {
     // New vendor accounts require admin approval before they can list
     // services - see the gate in services.service.ts createService().
     vendorStatus: input.role === 'vendor' ? 'pending' : 'approved',
+    // Must confirm the address before booking/listing anything - see the
+    // gates in services.service.ts createService and
+    // bookings.service.ts createBooking.
+    emailVerified: false,
   });
+  await sendVerificationEmail(user);
   return issueTokens(user);
+}
+
+export async function verifyEmail(rawToken: string): Promise<void> {
+  const tokenHash = hashToken(rawToken);
+  const user = await User.findOne({ emailVerificationTokenHash: tokenHash }).select(
+    '+emailVerificationTokenHash +emailVerificationExpiresAt',
+  );
+  if (!user || !user.emailVerificationExpiresAt || user.emailVerificationExpiresAt.getTime() < Date.now()) {
+    throw AppError.badRequest('That verification link is invalid or has expired', 'INVALID_VERIFICATION_TOKEN');
+  }
+  user.emailVerified = true;
+  user.emailVerificationTokenHash = null;
+  user.emailVerificationExpiresAt = null;
+  await user.save();
+}
+
+export async function resendVerification(userId: string): Promise<void> {
+  const user = await User.findById(userId);
+  if (!user || user.emailVerified) return;
+  await sendVerificationEmail(user);
 }
 
 export async function login(input: LoginInput): Promise<AuthResult> {

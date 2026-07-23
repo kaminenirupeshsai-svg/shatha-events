@@ -4,8 +4,10 @@ import { Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { PageHeader } from '@/components/shared/page-header';
 import { Reveal } from '@/components/shared/reveal';
+import { VerificationBanner } from '@/components/shared/verification-banner';
 import { BookingForm } from '@/features/bookings/booking-form';
 import { useCreateBooking } from '@/features/bookings/hooks';
+import { useMe } from '@/features/auth/hooks';
 
 function NewBookingForm() {
   const router = useRouter();
@@ -27,6 +29,8 @@ function NewBookingForm() {
 }
 
 export default function NewBookingPage() {
+  const { data: user } = useMe();
+
   return (
     <div className="mx-auto max-w-2xl">
       <PageHeader
@@ -35,6 +39,11 @@ export default function NewBookingPage() {
         subtitle="Tell us about your event and we'll match you with the right vendors."
         className="mb-8"
       />
+      {user && !user.emailVerified && (
+        <div className="mb-6">
+          <VerificationBanner />
+        </div>
+      )}
       <Reveal>
         <div className="rounded-2xl border border-line bg-surface p-6 shadow-card sm:p-8">
           <Suspense fallback={null}>

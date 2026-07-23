@@ -12,6 +12,7 @@ import type {
   UpdateProfileInput,
   UpdateSettingsInput,
   UserDto,
+  VerifyEmailInput,
 } from '@app/shared';
 import { apiClient } from '@/lib/api-client';
 import { endpoints } from '@/lib/endpoints';
@@ -62,7 +63,7 @@ export function useSignup() {
     onSuccess: (data) => {
       setSession(data);
       queryClient.setQueryData(queryKeys.me, data.user);
-      toast.success('Account created — welcome to Shatha Events');
+      toast.success('Account created — check your email to verify it before booking or listing services.');
     },
     onError: (err: Error) => {
       toast.error(err.message || 'Could not create your account.');
@@ -92,6 +93,33 @@ export function useResetPassword() {
     },
     onError: (err: Error) => {
       toast.error(err.message || 'That reset link is invalid or has expired.');
+    },
+  });
+}
+
+export function useVerifyEmail() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: VerifyEmailInput) =>
+      apiClient.post<{ message?: string }>(endpoints.auth.verifyEmail, input, { skipAuth: true }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.me });
+      toast.success('Email verified — you can now book or list services.');
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || 'That verification link is invalid or has expired.');
+    },
+  });
+}
+
+export function useResendVerification() {
+  return useMutation({
+    mutationFn: () => apiClient.post<{ message?: string }>(endpoints.auth.resendVerification, undefined),
+    onSuccess: () => {
+      toast.success('Verification email sent — check your inbox.');
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || 'Could not send the verification email.');
     },
   });
 }

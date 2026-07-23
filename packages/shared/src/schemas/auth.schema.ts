@@ -29,6 +29,11 @@ export const ResetPasswordInputSchema = z.object({
 });
 export type ResetPasswordInput = z.infer<typeof ResetPasswordInputSchema>;
 
+export const VerifyEmailInputSchema = z.object({
+  token: z.string().min(1),
+});
+export type VerifyEmailInput = z.infer<typeof VerifyEmailInputSchema>;
+
 // Returned by login/signup/refresh — the access token is held in memory on
 // the client (React Query cache), never localStorage; the refresh token
 // travels only as an httpOnly cookie and never appears in this body.

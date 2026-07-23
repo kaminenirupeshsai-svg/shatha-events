@@ -42,6 +42,11 @@ function idOf(value: unknown): string {
 }
 
 export async function createBooking(client: AuthUser, input: CreateBookingInput) {
+  const account = await User.findById(client.id).select('emailVerified');
+  if (!account?.emailVerified) {
+    throw AppError.forbidden('Please verify your email before submitting a booking request', 'EMAIL_NOT_VERIFIED');
+  }
+
   const serviceIds = input.services.map((item) => item.serviceId);
   const serviceDocs = await Service.find({ _id: { $in: serviceIds }, isActive: true });
   if (serviceDocs.length !== new Set(serviceIds).size) {

@@ -9,6 +9,7 @@ export function toUserDto(user: UserDoc): UserDto {
     email: user.email,
     role: user.role as UserRole,
     vendorStatus: (user.vendorStatus ?? 'approved') as UserDto['vendorStatus'],
+    emailVerified: user.emailVerified ?? true,
     phone: user.phone ?? null,
     avatarUrl: user.avatarUrl ?? null,
     theme: (user.theme ?? 'system') as UserDto['theme'],

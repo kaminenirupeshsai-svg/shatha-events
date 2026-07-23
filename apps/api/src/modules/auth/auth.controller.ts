@@ -71,3 +71,13 @@ export const resetPassword = asyncHandler(async (req: Request, res: Response) =>
   await authService.resetPassword(req.body.token, req.body.password);
   res.status(200).json({ message: 'Password reset. You can sign in now.' });
 });
+
+export const verifyEmail = asyncHandler(async (req: Request, res: Response) => {
+  await authService.verifyEmail(req.body.token);
+  res.status(200).json({ message: 'Email verified. You can now book or list services.' });
+});
+
+export const resendVerification = asyncHandler(async (req: Request, res: Response) => {
+  await authService.resendVerification(req.user!.id);
+  res.status(200).json({ message: 'If your email is not yet verified, a new link is on its way.' });
+});

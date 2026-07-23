@@ -49,15 +49,19 @@ export async function getServiceById(id: string, viewer?: AuthUser) {
 }
 
 export async function createService(vendor: AuthUser, input: CreateServiceInput) {
-  // Admins aren't subject to vendor vetting. Vendors need an approved
-  // account - checked fresh from the DB rather than the JWT, since
-  // vendorStatus can change mid-session and the access token has no opinion
-  // on it (see auth/jwt.ts's payload shape).
-  if (vendor.role !== 'admin') {
-    const account = await User.findById(vendor.id).select('vendorStatus');
-    if (account?.vendorStatus !== 'approved') {
-      throw AppError.forbidden('Your vendor account is pending admin approval', 'VENDOR_NOT_APPROVED');
-    }
+  // Checked fresh from the DB rather than the JWT, since both flags can
+  // change mid-session and the access token has no opinion on either (see
+  // auth/jwt.ts's payload shape).
+  const account = await User.findById(vendor.id).select('vendorStatus emailVerified');
+
+  // Admins aren't subject to vendor vetting, but every account (including
+  // admins, though seeded admin accounts are always pre-verified) still
+  // needs a confirmed email - see auth.service.ts signup/verifyEmail.
+  if (vendor.role !== 'admin' && account?.vendorStatus !== 'approved') {
+    throw AppError.forbidden('Your vendor account is pending admin approval', 'VENDOR_NOT_APPROVED');
+  }
+  if (!account?.emailVerified) {
+    throw AppError.forbidden('Please verify your email before listing services', 'EMAIL_NOT_VERIFIED');
   }
 
   const doc = await Service.create({

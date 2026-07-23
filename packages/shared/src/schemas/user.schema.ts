@@ -13,6 +13,7 @@ export const UserDtoSchema = z.object({
   email: z.string().email(),
   role: UserRoleSchema,
   vendorStatus: VendorStatusSchema,
+  emailVerified: z.boolean(),
   phone: z.string().nullable(),
   avatarUrl: z.string().nullable(),
   theme: z.enum(['light', 'dark', 'system']),

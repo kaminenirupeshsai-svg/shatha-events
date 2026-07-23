@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { BookingCardSkeleton, StatCardSkeleton } from '@/components/ui/skeleton';
 import { StaggerItem, StaggerReveal } from '@/components/shared/reveal';
+import { VerificationBanner } from '@/components/shared/verification-banner';
 import { useMyBookings } from '@/features/bookings/hooks';
 import { useMe } from '@/features/auth/hooks';
 
@@ -38,6 +39,8 @@ export default function ClientDashboardPage() {
           </Button>
         }
       />
+
+      {user && !user.emailVerified && <VerificationBanner />}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {isLoading ? (

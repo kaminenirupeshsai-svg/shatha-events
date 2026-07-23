@@ -4,7 +4,9 @@ import {
   LoginInputSchema,
   ResetPasswordInputSchema,
   SignupInputSchema,
+  VerifyEmailInputSchema,
 } from '@app/shared';
+import { auth } from '../../middleware/auth.js';
 import { validate } from '../../middleware/validate.js';
 import { authRateLimiter } from '../../middleware/rate-limit.js';
 import * as authController from './auth.controller.js';
@@ -27,3 +29,10 @@ authRouter.post(
   validate(ResetPasswordInputSchema),
   authController.resetPassword,
 );
+authRouter.post(
+  '/verify-email',
+  authRateLimiter,
+  validate(VerifyEmailInputSchema),
+  authController.verifyEmail,
+);
+authRouter.post('/resend-verification', auth, authRateLimiter, authController.resendVerification);

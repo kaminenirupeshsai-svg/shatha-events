@@ -36,6 +36,8 @@ describe.skipIf(!mongoAvailable)('booking lifecycle (integration, requires Mongo
   const clientEmail = `it-client-${stamp}@example.com`;
   const vendorEmail = `it-vendor-${stamp}@example.com`;
   const adminEmail = `it-admin-${stamp}@example.com`;
+  const unverifiedClientEmail = `it-unverified-client-${stamp}@example.com`;
+  const unverifiedVendorEmail = `it-unverified-vendor-${stamp}@example.com`;
   const password = 'Password123!';
 
   let clientToken = '';
@@ -60,7 +62,9 @@ describe.skipIf(!mongoAvailable)('booking lifecycle (integration, requires Mongo
 
   afterAll(async () => {
     await Promise.all([
-      User.deleteMany({ email: { $in: [clientEmail, vendorEmail, adminEmail] } }),
+      User.deleteMany({
+        email: { $in: [clientEmail, vendorEmail, adminEmail, unverifiedClientEmail, unverifiedVendorEmail] },
+      }),
       Service.deleteMany({ _id: serviceId || undefined }),
       Booking.deleteMany({ _id: bookingId || undefined }),
       Task.deleteMany({ bookingId: bookingId || undefined }),
@@ -77,6 +81,7 @@ describe.skipIf(!mongoAvailable)('booking lifecycle (integration, requires Mongo
 
     expect(res.status).toBe(201);
     expect(res.body.user.role).toBe('client');
+    expect(res.body.user.emailVerified).toBe(false);
     expect(res.body.accessToken).toEqual(expect.any(String));
 
     const setCookie = res.headers['set-cookie'];
@@ -86,6 +91,13 @@ describe.skipIf(!mongoAvailable)('booking lifecycle (integration, requires Mongo
     refreshCookie = (cookieHeader as string).split(';')[0]!;
     clientToken = res.body.accessToken;
     clientId = res.body.user.id;
+
+    // Stand in for "clicked the verification link" - the raw token only ever
+    // exists in the email body, nothing testable to extract it from at the
+    // HTTP layer. The gate itself is proven separately below with a
+    // dedicated unverified-account test; the rest of this suite exercises
+    // the everyday booking lifecycle, which needs a verified account.
+    await User.updateOne({ email: clientEmail }, { emailVerified: true });
   });
 
   it('rejects a duplicate signup with 409', async () => {
@@ -163,6 +175,17 @@ describe.skipIf(!mongoAvailable)('booking lifecycle (integration, requires Mongo
     expect(listedVendor.email).toBeUndefined();
     expect(listedVendor.phone).toBeUndefined();
 
+    // Approved vendor-status alone isn't enough - still blocked until email
+    // is verified too (a separate, independent gate; see createService).
+    const stillUnverified = await request(app)
+      .post('/api/services')
+      .set('Authorization', `Bearer ${vendorToken}`)
+      .send(serviceInput);
+    expect(stillUnverified.status).toBe(403);
+    expect(stillUnverified.body.code).toBe('EMAIL_NOT_VERIFIED');
+
+    await User.updateOne({ email: vendorEmail }, { emailVerified: true });
+
     const res = await request(app)
       .post('/api/services')
       .set('Authorization', `Bearer ${vendorToken}`)
@@ -171,6 +194,53 @@ describe.skipIf(!mongoAvailable)('booking lifecycle (integration, requires Mongo
     expect(res.status).toBe(201);
     expect(res.body.vendorName).toBe('Integration Vendor');
     serviceId = res.body.id;
+  });
+
+  it('blocks an unverified client from booking and an unverified (but approved) vendor from listing', async () => {
+    const clientSignup = await request(app)
+      .post('/api/auth/signup')
+      .send({ name: 'Unverified Client', email: unverifiedClientEmail, password, role: 'client' });
+    expect(clientSignup.body.user.emailVerified).toBe(false);
+    const unverifiedClientToken = clientSignup.body.accessToken;
+
+    const eventDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+    const blockedBooking = await request(app)
+      .post('/api/bookings')
+      .set('Authorization', `Bearer ${unverifiedClientToken}`)
+      .send({
+        eventType: 'wedding',
+        eventDate,
+        guestCount: 10,
+        services: [{ serviceId, notes: '' }],
+        budget: 500,
+      });
+    expect(blockedBooking.status).toBe(403);
+    expect(blockedBooking.body.code).toBe('EMAIL_NOT_VERIFIED');
+
+    const vendorSignup = await request(app)
+      .post('/api/auth/signup')
+      .send({ name: 'Unverified Vendor', email: unverifiedVendorEmail, password, role: 'vendor' });
+    const unverifiedVendorToken = vendorSignup.body.accessToken;
+    const unverifiedVendorId = vendorSignup.body.user.id;
+
+    // Approved so the vendor-status gate passes, isolating the assertion to
+    // the email-verification gate specifically.
+    await request(app)
+      .patch(`/api/users/${unverifiedVendorId}/vendor-status`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ status: 'approved' });
+
+    const blockedService = await request(app)
+      .post('/api/services')
+      .set('Authorization', `Bearer ${unverifiedVendorToken}`)
+      .send({
+        title: 'Should be blocked',
+        category: 'photography_film',
+        description: 'Should not be creatable while unverified.',
+        priceRange: { min: 100, max: 200 },
+      });
+    expect(blockedService.status).toBe(403);
+    expect(blockedService.body.code).toBe('EMAIL_NOT_VERIFIED');
   });
 
   it('lets the client create a booking against the vendor’s service', async () => {
