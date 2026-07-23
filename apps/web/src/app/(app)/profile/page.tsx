@@ -3,9 +3,10 @@
 import { useRef } from 'react';
 import { useForm, type FieldErrors } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Camera } from 'lucide-react';
+import { Camera, CheckCircle2 } from 'lucide-react';
 import { UpdatePasswordInputSchema, UpdateProfileInputSchema, type UpdatePasswordInput, type UpdateProfileInput } from '@app/shared';
 import { PageHeader } from '@/components/shared/page-header';
+import { VerificationBanner } from '@/components/shared/verification-banner';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -26,6 +27,14 @@ export default function ProfilePage() {
       ) : (
         <>
           <AvatarSection avatarUrl={user.avatarUrl} name={user.name} />
+          {user.emailVerified ? (
+            <div className="flex items-center gap-2.5 rounded-2xl border border-line bg-surface px-4 py-3.5 text-sm text-ink-soft">
+              <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald" aria-hidden="true" />
+              Email verified
+            </div>
+          ) : (
+            <VerificationBanner />
+          )}
           <ProfileForm defaultValues={{ name: user.name, phone: user.phone ?? '' }} />
           <PasswordForm />
         </>

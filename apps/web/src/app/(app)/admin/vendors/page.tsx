@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Search, Store } from 'lucide-react';
+import { CheckCircle2, Search, Store } from 'lucide-react';
 import type { UserDto } from '@app/shared';
 import { PageHeader } from '@/components/shared/page-header';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -99,7 +99,18 @@ export default function AdminVendorsPage() {
                       <span className="font-medium text-ink">{vendor.name}</span>
                     </div>
                   </td>
-                  <td className="px-4 py-3.5 text-ink-soft">{vendor.email}</td>
+                  <td className="px-4 py-3.5 text-ink-soft">
+                    <div className="flex items-center gap-1.5">
+                      {vendor.email}
+                      {vendor.emailVerified ? (
+                        <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald" aria-label="Email verified" />
+                      ) : (
+                        <span className="shrink-0 rounded-full bg-slate-tint px-1.5 py-0.5 font-label text-[9px] font-semibold uppercase tracking-wide text-slate">
+                          Unverified
+                        </span>
+                      )}
+                    </div>
+                  </td>
                   <td className="px-4 py-3.5 text-ink-soft">{vendor.phone ?? '—'}</td>
                   <td className="px-4 py-3.5">
                     <VendorStatusBadge status={vendor.vendorStatus} />
