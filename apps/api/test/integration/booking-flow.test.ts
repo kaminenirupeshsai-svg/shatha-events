@@ -117,6 +117,20 @@ describe.skipIf(!mongoAvailable)('booking lifecycle (integration, requires Mongo
     expect(reused.status).toBe(401);
   });
 
+  it('only lets one of two concurrent refreshes with the same token succeed (no replay race)', async () => {
+    const login = await request(app).post('/api/auth/login').send({ email: clientEmail, password });
+    const setCookie = login.headers['set-cookie'];
+    const cookieHeader = Array.isArray(setCookie) ? setCookie.find((c: string) => c.startsWith('refreshToken=')) : setCookie;
+    const cookie = (cookieHeader as string).split(';')[0]!;
+
+    const [a, b] = await Promise.all([
+      request(app).post('/api/auth/refresh').set('Cookie', cookie),
+      request(app).post('/api/auth/refresh').set('Cookie', cookie),
+    ]);
+    const statuses = [a.status, b.status].sort();
+    expect(statuses).toEqual([200, 401]);
+  });
+
   it('rejects login with the wrong password', async () => {
     const res = await request(app).post('/api/auth/login').send({ email: clientEmail, password: 'wrong-password' });
     expect(res.status).toBe(401);
@@ -324,6 +338,15 @@ describe.skipIf(!mongoAvailable)('booking lifecycle (integration, requires Mongo
       .send({ status: 'done' });
     expect(updated.status).toBe(200);
     expect(updated.body.status).toBe('done');
+  });
+
+  it('rejects creating a task assigned to a non-existent user instead of 500ing', async () => {
+    const res = await request(app)
+      .post(`/api/bookings/${bookingId}/tasks`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ title: 'Orphan task', assignedTo: new mongoose.Types.ObjectId().toString() });
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('ASSIGNEE_NOT_FOUND');
   });
 
   it('a non-admin cannot create tasks on the booking', async () => {

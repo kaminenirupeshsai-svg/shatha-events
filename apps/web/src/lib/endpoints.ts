@@ -43,4 +43,7 @@ export const endpoints = {
     markRead: (id: string) => `/api/notifications/${id}/read`,
     markAllRead: '/api/notifications/read-all',
   },
+  contact: {
+    submit: '/api/contact',
+  },
 } as const;

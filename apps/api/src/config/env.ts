@@ -23,6 +23,10 @@ const EnvSchema = z.object({
   // Not your real Gmail password - a 16-character Google "App Password"
   // (myaccount.google.com/apppasswords, requires 2-Step Verification).
   GMAIL_APP_PASSWORD: z.string().optional(),
+  // Where the public Contact page's messages get delivered. Defaults to
+  // GMAIL_USER (send to the same inbox already configured for outbound
+  // mail) if unset - see contact.service.ts.
+  CONTACT_EMAIL: z.string().email().optional(),
 });
 
 function loadEnv() {

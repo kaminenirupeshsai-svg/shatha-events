@@ -1,4 +1,5 @@
 export * from './schemas/common.schema.js';
+export * from './schemas/contact.schema.js';
 export * from './schemas/user.schema.js';
 export * from './schemas/auth.schema.js';
 export * from './schemas/service.schema.js';

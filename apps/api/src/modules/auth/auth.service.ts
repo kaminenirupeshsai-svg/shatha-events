@@ -120,7 +120,14 @@ export async function refresh(rawRefreshToken: string | undefined): Promise<Auth
     throw AppError.unauthorized('Missing refresh token', 'MISSING_REFRESH_TOKEN');
   }
   const tokenHash = hashToken(rawRefreshToken);
-  const stored = await RefreshToken.findOne({ tokenHash, revokedAt: null });
+  // Atomic find-and-revoke: two concurrent requests presenting the same raw
+  // token (e.g. a replayed/stolen cookie racing the legitimate client) must
+  // not both be able to observe it as "not yet revoked" - only the request
+  // whose update actually flips revokedAt may proceed to issue new tokens.
+  const stored = await RefreshToken.findOneAndUpdate(
+    { tokenHash, revokedAt: null },
+    { revokedAt: new Date() },
+  );
   if (!stored || stored.expiresAt.getTime() < Date.now()) {
     throw AppError.unauthorized('Your session has expired, please sign in again', 'INVALID_REFRESH_TOKEN');
   }
@@ -128,9 +135,6 @@ export async function refresh(rawRefreshToken: string | undefined): Promise<Auth
   if (!user) {
     throw AppError.unauthorized('Your session has expired, please sign in again', 'INVALID_REFRESH_TOKEN');
   }
-  // Rotate: the presented token is single-use.
-  stored.revokedAt = new Date();
-  await stored.save();
   return issueTokens(user);
 }
 

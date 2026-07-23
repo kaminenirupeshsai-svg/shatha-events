@@ -1,12 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useForm, type FieldErrors } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { Mail, MapPin, Phone } from 'lucide-react';
+import { ContactInputSchema, type ContactInput } from '@app/shared';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Reveal } from '@/components/shared/reveal';
+import { useSubmitContact } from '@/features/contact/hooks';
 import { toast } from 'sonner';
 
 const CONTACT_DETAILS = [
@@ -16,13 +19,31 @@ const CONTACT_DETAILS = [
 ];
 
 export default function ContactPage() {
-  const [submitted, setSubmitted] = useState(false);
+  const submitContact = useSubmitContact();
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setSubmitted(true);
-    toast.success("Message sent — we'll get back to you within a business day.");
-  }
+  const {
+    register,
+    handleSubmit,
+    setFocus,
+    reset,
+    formState: { errors },
+  } = useForm<ContactInput>({
+    resolver: zodResolver(ContactInputSchema),
+    mode: 'onBlur',
+    defaultValues: { name: '', email: '', message: '' },
+  });
+
+  const onInvalid = (formErrors: FieldErrors<ContactInput>) => {
+    const first = Object.keys(formErrors)[0] as keyof ContactInput | undefined;
+    if (first) setFocus(first);
+  };
+
+  const onSubmit = handleSubmit((values) => {
+    submitContact.mutate(values, {
+      onSuccess: () => reset(),
+      onError: (err: Error) => toast.error(err.message || 'Could not send your message. Please try again.'),
+    });
+  }, onInvalid);
 
   return (
     <section className="section-ivory">
@@ -53,26 +74,59 @@ export default function ContactPage() {
 
         <Reveal delay={0.1}>
           <div className="rounded-2xl border border-line bg-surface p-6 shadow-card sm:p-8">
-            {submitted ? (
+            {submitContact.isSuccess ? (
               <div className="flex flex-col items-center gap-2 py-10 text-center">
                 <h2 className="font-display text-xl font-semibold text-ink">Thanks for reaching out</h2>
                 <p className="text-sm text-ink-soft">We usually reply within one business day.</p>
               </div>
             ) : (
-              <form onSubmit={handleSubmit} className="space-y-5">
+              <form onSubmit={onSubmit} noValidate className="space-y-5">
                 <div>
                   <Label htmlFor="name">Name</Label>
-                  <Input id="name" name="name" required autoComplete="name" />
+                  <Input
+                    id="name"
+                    autoComplete="name"
+                    invalid={Boolean(errors.name)}
+                    aria-describedby={errors.name ? 'name-error' : undefined}
+                    {...register('name')}
+                  />
+                  {errors.name && (
+                    <p id="name-error" className="mt-1.5 text-sm text-terracotta">
+                      {errors.name.message}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <Label htmlFor="email">Email address</Label>
-                  <Input id="email" name="email" type="email" required autoComplete="email" />
+                  <Input
+                    id="email"
+                    type="email"
+                    autoComplete="email"
+                    invalid={Boolean(errors.email)}
+                    aria-describedby={errors.email ? 'email-error' : undefined}
+                    {...register('email')}
+                  />
+                  {errors.email && (
+                    <p id="email-error" className="mt-1.5 text-sm text-terracotta">
+                      {errors.email.message}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <Label htmlFor="message">Message</Label>
-                  <Textarea id="message" name="message" required />
+                  <Textarea
+                    id="message"
+                    invalid={Boolean(errors.message)}
+                    aria-describedby={errors.message ? 'message-error' : undefined}
+                    {...register('message')}
+                  />
+                  {errors.message && (
+                    <p id="message-error" className="mt-1.5 text-sm text-terracotta">
+                      {errors.message.message}
+                    </p>
+                  )}
                 </div>
-                <Button type="submit" className="w-full">
+                <Button type="submit" className="w-full" isLoading={submitContact.isPending}>
                   Send message
                 </Button>
               </form>

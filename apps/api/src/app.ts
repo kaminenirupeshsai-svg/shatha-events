@@ -16,6 +16,7 @@ import { bookingsRouter } from './modules/bookings/bookings.routes.js';
 import { tasksRouter } from './modules/tasks/tasks.routes.js';
 import { notificationsRouter } from './modules/notifications/notifications.routes.js';
 import { uploadsRouter } from './modules/uploads/uploads.routes.js';
+import { contactRouter } from './modules/contact/contact.routes.js';
 
 export const app = express();
 
@@ -56,6 +57,7 @@ app.use('/api/bookings', bookingsRouter);
 app.use('/api/tasks', tasksRouter);
 app.use('/api/notifications', notificationsRouter);
 app.use('/api/uploads', uploadsRouter);
+app.use('/api/contact', contactRouter);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

@@ -1,6 +1,7 @@
 import type { CreateTaskInput, TaskStatus } from '@app/shared';
 import { Task } from '../../models/Task.js';
 import { Booking } from '../../models/Booking.js';
+import { User } from '../../models/User.js';
 import { AppError } from '../../lib/app-error.js';
 import { logger } from '../../lib/logger.js';
 import type { AuthUser } from '../../middleware/auth.js';
@@ -19,6 +20,9 @@ function idOf(value: unknown): string {
 export async function createTask(bookingId: string, input: CreateTaskInput) {
   const booking = await Booking.findById(bookingId);
   if (!booking) throw AppError.notFound('Booking not found');
+
+  const assignee = await User.findById(input.assignedTo).select('_id');
+  if (!assignee) throw AppError.badRequest('Assignee not found', 'ASSIGNEE_NOT_FOUND');
 
   const doc = await Task.create({
     bookingId,

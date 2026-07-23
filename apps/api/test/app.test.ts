@@ -44,6 +44,33 @@ describe('input validation (no DB required - rejected before the controller runs
     const res = await request(app).get('/api/services/not-a-valid-object-id');
     expect(res.status).toBe(400);
   });
+
+  it('rejects a contact submission with a too-short message', async () => {
+    const res = await request(app)
+      .post('/api/contact')
+      .send({ name: 'Jo', email: 'jo@example.com', message: 'too short' });
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('VALIDATION_ERROR');
+  });
+
+  it('rejects a contact submission with an invalid email', async () => {
+    const res = await request(app)
+      .post('/api/contact')
+      .send({ name: 'Jo Vendor', email: 'not-an-email', message: 'A perfectly reasonable inquiry.' });
+    expect(res.status).toBe(400);
+  });
+});
+
+describe('POST /api/contact', () => {
+  it('accepts a well-formed message (delivered via the console email driver in tests)', async () => {
+    const res = await request(app).post('/api/contact').send({
+      name: 'Jo Vendor',
+      email: 'jo@example.com',
+      message: 'I would like to know more about your catering packages.',
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.message).toBeTruthy();
+  });
 });
 
 describe('authentication is required', () => {
