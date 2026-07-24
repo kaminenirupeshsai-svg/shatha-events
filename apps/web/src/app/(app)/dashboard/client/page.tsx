@@ -40,7 +40,7 @@ export default function ClientDashboardPage() {
         }
       />
 
-      {user && !user.emailVerified && <VerificationBanner />}
+      {user && !user.emailVerified && <VerificationBanner email={user.email} />}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {isLoading ? (

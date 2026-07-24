@@ -33,7 +33,7 @@ export default function ProfilePage() {
               Email verified
             </div>
           ) : (
-            <VerificationBanner />
+            <VerificationBanner email={user.email} />
           )}
           <ProfileForm defaultValues={{ name: user.name, phone: user.phone ?? '' }} />
           <PasswordForm />

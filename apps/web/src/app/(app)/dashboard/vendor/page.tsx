@@ -40,7 +40,7 @@ export default function VendorDashboardPage() {
         }
       />
 
-      {user && !user.emailVerified && <VerificationBanner />}
+      {user && !user.emailVerified && <VerificationBanner email={user.email} />}
 
       {user && user.vendorStatus !== 'approved' && (
         <div className="flex items-start gap-3 rounded-2xl border border-amber/40 bg-amber-tint px-4 py-3.5">

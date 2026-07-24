@@ -13,12 +13,12 @@ import { Notification } from '../../src/models/Notification.js';
 import { RefreshToken } from '../../src/models/RefreshToken.js';
 
 // This suite drives the real HTTP surface against a real MongoDB and is the
-// only place the full multi-role flow (signup -> vendor lists a service ->
-// client books it -> admin transitions its status -> notifications/tasks
-// fire) is exercised end-to-end. It requires a reachable Mongo instance, so
-// it self-skips (rather than failing) when one isn't available - checked
-// with a short timeout so `pnpm test` stays fast in environments without
-// MongoDB installed.
+// only place the full multi-role flow (signup -> verify -> login -> vendor
+// lists a service -> client books it -> admin transitions its status ->
+// notifications/tasks fire) is exercised end-to-end. It requires a reachable
+// Mongo instance, so it self-skips (rather than failing) when one isn't
+// available - checked with a short timeout so `pnpm test` stays fast in
+// environments without MongoDB installed.
 async function isMongoReachable(): Promise<boolean> {
   try {
     const probe = await mongoose.createConnection(env.MONGODB_URI, { serverSelectionTimeoutMS: 1500 }).asPromise();
@@ -36,8 +36,6 @@ describe.skipIf(!mongoAvailable)('booking lifecycle (integration, requires Mongo
   const clientEmail = `it-client-${stamp}@example.com`;
   const vendorEmail = `it-vendor-${stamp}@example.com`;
   const adminEmail = `it-admin-${stamp}@example.com`;
-  const unverifiedClientEmail = `it-unverified-client-${stamp}@example.com`;
-  const unverifiedVendorEmail = `it-unverified-vendor-${stamp}@example.com`;
   const password = 'Password123!';
 
   let clientToken = '';
@@ -52,6 +50,8 @@ describe.skipIf(!mongoAvailable)('booking lifecycle (integration, requires Mongo
     await connectDb();
     // Admin accounts can't self-register (SignupRoleSchema only allows
     // client/vendor) - seed one directly, same as the real onboarding path.
+    // Created straight in Mongo (not through signup()), so it gets the
+    // schema default emailVerified: true and can log in immediately.
     await User.create({
       name: 'Integration Test Admin',
       email: adminEmail,
@@ -62,9 +62,7 @@ describe.skipIf(!mongoAvailable)('booking lifecycle (integration, requires Mongo
 
   afterAll(async () => {
     await Promise.all([
-      User.deleteMany({
-        email: { $in: [clientEmail, vendorEmail, adminEmail, unverifiedClientEmail, unverifiedVendorEmail] },
-      }),
+      User.deleteMany({ email: { $in: [clientEmail, vendorEmail, adminEmail] } }),
       Service.deleteMany({ _id: serviceId || undefined }),
       Booking.deleteMany({ _id: bookingId || undefined }),
       Task.deleteMany({ bookingId: bookingId || undefined }),
@@ -74,30 +72,51 @@ describe.skipIf(!mongoAvailable)('booking lifecycle (integration, requires Mongo
     await disconnectDb();
   });
 
-  it('signs up a client and returns a session (and sets the refresh cookie)', async () => {
-    const res = await request(app)
+  it('signs up a client without issuing a session, blocks login until verified, then logs in', async () => {
+    const signup = await request(app)
       .post('/api/auth/signup')
       .send({ name: 'Integration Client', email: clientEmail, password, role: 'client' });
 
-    expect(res.status).toBe(201);
-    expect(res.body.user.role).toBe('client');
-    expect(res.body.user.emailVerified).toBe(false);
-    expect(res.body.accessToken).toEqual(expect.any(String));
+    expect(signup.status).toBe(201);
+    expect(signup.body.email).toBe(clientEmail);
+    // No session is issued at signup anymore - nothing to log in with yet.
+    expect(signup.body.accessToken).toBeUndefined();
+    expect(signup.headers['set-cookie']).toBeUndefined();
 
-    const setCookie = res.headers['set-cookie'];
+    const blockedLogin = await request(app).post('/api/auth/login').send({ email: clientEmail, password });
+    expect(blockedLogin.status).toBe(403);
+    expect(blockedLogin.body.code).toBe('EMAIL_NOT_VERIFIED');
+
+    // Stand in for "clicked the verification link" - the raw token only ever
+    // exists in the email body, nothing testable to extract it from at the
+    // HTTP layer.
+    await User.updateOne({ email: clientEmail }, { emailVerified: true });
+
+    const login = await request(app).post('/api/auth/login').send({ email: clientEmail, password });
+    expect(login.status).toBe(200);
+    expect(login.body.accessToken).toEqual(expect.any(String));
+
+    const setCookie = login.headers['set-cookie'];
     expect(setCookie).toBeDefined();
     const cookieHeader = Array.isArray(setCookie) ? setCookie.find((c: string) => c.startsWith('refreshToken=')) : setCookie;
     expect(cookieHeader).toBeDefined();
     refreshCookie = (cookieHeader as string).split(';')[0]!;
-    clientToken = res.body.accessToken;
-    clientId = res.body.user.id;
+    clientToken = login.body.accessToken;
+    clientId = login.body.user.id;
+  });
 
-    // Stand in for "clicked the verification link" - the raw token only ever
-    // exists in the email body, nothing testable to extract it from at the
-    // HTTP layer. The gate itself is proven separately below with a
-    // dedicated unverified-account test; the rest of this suite exercises
-    // the everyday booking lifecycle, which needs a verified account.
-    await User.updateOne({ email: clientEmail }, { emailVerified: true });
+  it('accepts a resend-verification request with no Authorization header and does not leak whether the email exists', async () => {
+    // Unverified accounts have no session (login blocks them), so this
+    // endpoint can't require auth - it takes an email directly instead, and
+    // - like forgot-password - resolves 200 either way rather than revealing
+    // whether the address is registered or already verified.
+    const known = await request(app).post('/api/auth/resend-verification').send({ email: clientEmail });
+    expect(known.status).toBe(200);
+
+    const unknown = await request(app)
+      .post('/api/auth/resend-verification')
+      .send({ email: `nobody-${stamp}@example.com` });
+    expect(unknown.status).toBe(200);
   });
 
   it('rejects a duplicate signup with 409', async () => {
@@ -143,14 +162,23 @@ describe.skipIf(!mongoAvailable)('booking lifecycle (integration, requires Mongo
     adminToken = res.body.accessToken;
   });
 
-  it('signs up a vendor as pending, blocks service creation until an admin approves the account', async () => {
+  it('signs up a vendor as pending, blocks login until verified, then blocks service creation until an admin approves the account', async () => {
     const signup = await request(app)
       .post('/api/auth/signup')
       .send({ name: 'Integration Vendor', email: vendorEmail, password, role: 'vendor' });
     expect(signup.status).toBe(201);
-    expect(signup.body.user.vendorStatus).toBe('pending');
-    vendorToken = signup.body.accessToken;
-    const vendorId = signup.body.user.id;
+
+    const blockedLogin = await request(app).post('/api/auth/login').send({ email: vendorEmail, password });
+    expect(blockedLogin.status).toBe(403);
+    expect(blockedLogin.body.code).toBe('EMAIL_NOT_VERIFIED');
+
+    await User.updateOne({ email: vendorEmail }, { emailVerified: true });
+
+    const login = await request(app).post('/api/auth/login').send({ email: vendorEmail, password });
+    expect(login.status).toBe(200);
+    expect(login.body.user.vendorStatus).toBe('pending');
+    vendorToken = login.body.accessToken;
+    const vendorId = login.body.user.id;
 
     const serviceInput = {
       title: 'Integration Test Photography',
@@ -189,17 +217,6 @@ describe.skipIf(!mongoAvailable)('booking lifecycle (integration, requires Mongo
     expect(listedVendor.email).toBeUndefined();
     expect(listedVendor.phone).toBeUndefined();
 
-    // Approved vendor-status alone isn't enough - still blocked until email
-    // is verified too (a separate, independent gate; see createService).
-    const stillUnverified = await request(app)
-      .post('/api/services')
-      .set('Authorization', `Bearer ${vendorToken}`)
-      .send(serviceInput);
-    expect(stillUnverified.status).toBe(403);
-    expect(stillUnverified.body.code).toBe('EMAIL_NOT_VERIFIED');
-
-    await User.updateOne({ email: vendorEmail }, { emailVerified: true });
-
     const res = await request(app)
       .post('/api/services')
       .set('Authorization', `Bearer ${vendorToken}`)
@@ -210,51 +227,32 @@ describe.skipIf(!mongoAvailable)('booking lifecycle (integration, requires Mongo
     serviceId = res.body.id;
   });
 
-  it('blocks an unverified client from booking and an unverified (but approved) vendor from listing', async () => {
-    const clientSignup = await request(app)
-      .post('/api/auth/signup')
-      .send({ name: 'Unverified Client', email: unverifiedClientEmail, password, role: 'client' });
-    expect(clientSignup.body.user.emailVerified).toBe(false);
-    const unverifiedClientToken = clientSignup.body.accessToken;
-
-    const eventDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
-    const blockedBooking = await request(app)
-      .post('/api/bookings')
-      .set('Authorization', `Bearer ${unverifiedClientToken}`)
-      .send({
-        eventType: 'wedding',
-        eventDate,
-        guestCount: 10,
-        services: [{ serviceId, notes: '' }],
-        budget: 500,
-      });
-    expect(blockedBooking.status).toBe(403);
-    expect(blockedBooking.body.code).toBe('EMAIL_NOT_VERIFIED');
-
-    const vendorSignup = await request(app)
-      .post('/api/auth/signup')
-      .send({ name: 'Unverified Vendor', email: unverifiedVendorEmail, password, role: 'vendor' });
-    const unverifiedVendorToken = vendorSignup.body.accessToken;
-    const unverifiedVendorId = vendorSignup.body.user.id;
-
-    // Approved so the vendor-status gate passes, isolating the assertion to
-    // the email-verification gate specifically.
-    await request(app)
-      .patch(`/api/users/${unverifiedVendorId}/vendor-status`)
-      .set('Authorization', `Bearer ${adminToken}`)
-      .send({ status: 'approved' });
-
-    const blockedService = await request(app)
-      .post('/api/services')
-      .set('Authorization', `Bearer ${unverifiedVendorToken}`)
-      .send({
-        title: 'Should be blocked',
-        category: 'photography_film',
-        description: 'Should not be creatable while unverified.',
-        priceRange: { min: 100, max: 200 },
-      });
-    expect(blockedService.status).toBe(403);
-    expect(blockedService.body.code).toBe('EMAIL_NOT_VERIFIED');
+  it('still blocks booking creation at the service layer if an account is marked unverified after its token was issued (defense in depth for stale sessions)', async () => {
+    // Login now requires emailVerified, so this state is unreachable through
+    // the normal auth flow - the only way to produce it is a token that was
+    // already issued before the account somehow became unverified again
+    // (nothing in the app does this today, but the service-layer check in
+    // bookings.service.ts createBooking exists specifically for this class
+    // of edge case, so it stays covered here rather than only reachable in
+    // theory).
+    await User.updateOne({ email: clientEmail }, { emailVerified: false });
+    try {
+      const eventDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+      const res = await request(app)
+        .post('/api/bookings')
+        .set('Authorization', `Bearer ${clientToken}`)
+        .send({
+          eventType: 'wedding',
+          eventDate,
+          guestCount: 10,
+          services: [{ serviceId, notes: '' }],
+          budget: 500,
+        });
+      expect(res.status).toBe(403);
+      expect(res.body.code).toBe('EMAIL_NOT_VERIFIED');
+    } finally {
+      await User.updateOne({ email: clientEmail }, { emailVerified: true });
+    }
   });
 
   it('lets the client create a booking against the vendor’s service', async () => {

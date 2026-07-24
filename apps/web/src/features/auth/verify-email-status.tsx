@@ -44,10 +44,10 @@ export function VerifyEmailStatus() {
       <StatusMessage
         icon={<CheckCircle2 className="h-8 w-8 text-emerald" aria-hidden="true" />}
         title="Email verified"
-        description="You can now book or list services on Shatha Events."
+        description="Your account is ready — sign in to continue."
         action={
           <Button asChild>
-            <Link href="/dashboard">Go to dashboard</Link>
+            <Link href="/login">Sign in</Link>
           </Button>
         }
       />
@@ -58,7 +58,7 @@ export function VerifyEmailStatus() {
     <StatusMessage
       icon={<XCircle className="h-8 w-8 text-terracotta" aria-hidden="true" />}
       title="That link is invalid or has expired"
-      description="Sign in and use the resend option to get a fresh verification email."
+      description="Try signing in — if your email still needs verifying, you'll get the option to resend the link from there."
       action={
         <Button asChild variant="outline">
           <Link href="/login">Back to sign in</Link>

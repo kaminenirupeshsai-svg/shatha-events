@@ -6,7 +6,6 @@ import {
   SignupInputSchema,
   VerifyEmailInputSchema,
 } from '@app/shared';
-import { auth } from '../../middleware/auth.js';
 import { validate } from '../../middleware/validate.js';
 import { authRateLimiter } from '../../middleware/rate-limit.js';
 import * as authController from './auth.controller.js';
@@ -35,4 +34,12 @@ authRouter.post(
   validate(VerifyEmailInputSchema),
   authController.verifyEmail,
 );
-authRouter.post('/resend-verification', auth, authRateLimiter, authController.resendVerification);
+// Not authenticated - a user who's blocked at login for being unverified has
+// no session to authenticate this with, so it takes an email in the body
+// instead (same non-leaking pattern as forgot-password).
+authRouter.post(
+  '/resend-verification',
+  authRateLimiter,
+  validate(ForgotPasswordInputSchema),
+  authController.resendVerification,
+);

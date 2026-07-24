@@ -59,6 +59,11 @@ describe('input validation (no DB required - rejected before the controller runs
       .send({ name: 'Jo Vendor', email: 'not-an-email', message: 'A perfectly reasonable inquiry.' });
     expect(res.status).toBe(400);
   });
+
+  it('rejects resend-verification with an invalid email', async () => {
+    const res = await request(app).post('/api/auth/resend-verification').send({ email: 'not-an-email' });
+    expect(res.status).toBe(400);
+  });
 });
 
 describe('POST /api/contact', () => {

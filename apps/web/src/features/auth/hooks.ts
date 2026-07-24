@@ -8,6 +8,7 @@ import type {
   LoginInput,
   ResetPasswordInput,
   SignupInput,
+  SignupResponse,
   UpdatePasswordInput,
   UpdateProfileInput,
   UpdateSettingsInput,
@@ -55,16 +56,11 @@ export function useLogin() {
 }
 
 export function useSignup() {
-  const setSession = useAuthStore((s) => s.setSession);
-  const queryClient = useQueryClient();
-
   return useMutation({
-    mutationFn: (input: SignupInput) => apiClient.post<AuthResponse>(endpoints.auth.signup, input, { skipAuth: true }),
-    onSuccess: (data) => {
-      setSession(data);
-      queryClient.setQueryData(queryKeys.me, data.user);
-      toast.success('Account created — check your email to verify it before booking or listing services.');
-    },
+    // No session is issued here - the account can't log in until its email
+    // is verified, so there's nothing to store yet (see auth.service.ts signup).
+    mutationFn: (input: SignupInput) =>
+      apiClient.post<SignupResponse>(endpoints.auth.signup, input, { skipAuth: true }),
     onError: (err: Error) => {
       toast.error(err.message || 'Could not create your account.');
     },
@@ -114,9 +110,12 @@ export function useVerifyEmail() {
 
 export function useResendVerification() {
   return useMutation({
-    mutationFn: () => apiClient.post<{ message?: string }>(endpoints.auth.resendVerification, undefined),
+    // Not authenticated - an unverified account has no session to send this
+    // with (login blocks it), so it goes by email instead, same as forgot-password.
+    mutationFn: (email: string) =>
+      apiClient.post<{ message?: string }>(endpoints.auth.resendVerification, { email }, { skipAuth: true }),
     onSuccess: () => {
-      toast.success('Verification email sent — check your inbox.');
+      toast.success('If that email needs verifying, a new link is on its way.');
     },
     onError: (err: Error) => {
       toast.error(err.message || 'Could not send the verification email.');

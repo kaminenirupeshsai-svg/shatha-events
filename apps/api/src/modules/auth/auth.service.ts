@@ -60,7 +60,12 @@ async function sendVerificationEmail(user: UserDoc): Promise<void> {
   }
 }
 
-export async function signup(input: SignupInput): Promise<AuthResult> {
+interface SignupResult {
+  message: string;
+  email: string;
+}
+
+export async function signup(input: SignupInput): Promise<SignupResult> {
   const existing = await User.findOne({ email: input.email });
   if (existing) {
     throw AppError.conflict('An account with that email already exists', 'EMAIL_TAKEN');
@@ -74,13 +79,13 @@ export async function signup(input: SignupInput): Promise<AuthResult> {
     // New vendor accounts require admin approval before they can list
     // services - see the gate in services.service.ts createService().
     vendorStatus: input.role === 'vendor' ? 'pending' : 'approved',
-    // Must confirm the address before booking/listing anything - see the
-    // gates in services.service.ts createService and
-    // bookings.service.ts createBooking.
+    // Must confirm the address before logging in at all - see login() below.
     emailVerified: false,
   });
   await sendVerificationEmail(user);
-  return issueTokens(user);
+  // No session is issued here - login() requires emailVerified, and this
+  // account isn't yet, so there's nothing valid to log them into.
+  return { message: 'Account created — check your email to verify it before signing in.', email: user.email };
 }
 
 export async function verifyEmail(rawToken: string): Promise<void> {
@@ -97,8 +102,9 @@ export async function verifyEmail(rawToken: string): Promise<void> {
   await user.save();
 }
 
-export async function resendVerification(userId: string): Promise<void> {
-  const user = await User.findById(userId);
+/** Always resolves without revealing whether the address is registered or already verified. */
+export async function resendVerification(email: string): Promise<void> {
+  const user = await User.findOne({ email });
   if (!user || user.emailVerified) return;
   await sendVerificationEmail(user);
 }
@@ -111,6 +117,12 @@ export async function login(input: LoginInput): Promise<AuthResult> {
   const valid = await bcrypt.compare(input.password, user.passwordHash);
   if (!valid) {
     throw AppError.unauthorized('Incorrect email or password', 'INVALID_CREDENTIALS');
+  }
+  if (!user.emailVerified) {
+    throw AppError.forbidden(
+      'Please verify your email before logging in — check your inbox for the link we sent when you signed up.',
+      'EMAIL_NOT_VERIFIED',
+    );
   }
   return issueTokens(user);
 }

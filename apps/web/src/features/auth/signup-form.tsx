@@ -1,9 +1,10 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { useState } from 'react';
+import Link from 'next/link';
 import { useForm, Controller, type FieldErrors } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Briefcase, User } from 'lucide-react';
+import { Briefcase, MailCheck, User } from 'lucide-react';
 import { SignupInputSchema, type SignupInput } from '@app/shared';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -17,8 +18,8 @@ const ROLES: { value: SignupInput['role']; label: string; description: string; i
 ];
 
 export function SignupForm() {
-  const router = useRouter();
   const signup = useSignup();
+  const [submittedEmail, setSubmittedEmail] = useState<string | null>(null);
 
   const {
     register,
@@ -39,9 +40,24 @@ export function SignupForm() {
 
   const onSubmit = handleSubmit((values) => {
     signup.mutate(values, {
-      onSuccess: () => router.push('/dashboard'),
+      onSuccess: (data) => setSubmittedEmail(data.email),
     });
   }, onInvalid);
+
+  if (submittedEmail) {
+    return (
+      <div className="flex flex-col items-center gap-3 rounded-xl border border-line bg-emerald-tint p-6 text-center">
+        <MailCheck className="h-8 w-8 text-emerald" aria-hidden="true" />
+        <p className="text-sm text-ink">
+          We sent a verification link to <span className="font-semibold">{submittedEmail}</span>. Click it to
+          activate your account, then sign in.
+        </p>
+        <Button asChild variant="outline" size="sm" className="mt-1">
+          <Link href="/login">Back to sign in</Link>
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={onSubmit} noValidate className="space-y-5">

@@ -4,20 +4,24 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm, type FieldErrors } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { MailWarning } from 'lucide-react';
 import { LoginInputSchema, type LoginInput } from '@app/shared';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { useLogin } from './hooks';
+import { ApiError } from '@/lib/api-client';
+import { useLogin, useResendVerification } from './hooks';
 
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const login = useLogin();
+  const resend = useResendVerification();
 
   const {
     register,
     handleSubmit,
+    getValues,
     setFocus,
     formState: { errors },
   } = useForm<LoginInput>({
@@ -38,6 +42,8 @@ export function LoginForm() {
       },
     });
   }, onInvalid);
+
+  const unverified = login.error instanceof ApiError && login.error.code === 'EMAIL_NOT_VERIFIED';
 
   return (
     <form onSubmit={onSubmit} noValidate className="space-y-5">
@@ -79,6 +85,27 @@ export function LoginForm() {
           </p>
         )}
       </div>
+
+      {unverified && (
+        <div className="flex flex-col items-start gap-3 rounded-xl border border-amber/40 bg-amber-tint px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <MailWarning className="mt-0.5 h-4 w-4 shrink-0 text-[#8C6A22] dark:text-amber" aria-hidden="true" />
+            <p className="text-sm text-[#8C6A22] dark:text-amber">
+              Verify your email before signing in — check your inbox for the link.
+            </p>
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="shrink-0"
+            isLoading={resend.isPending}
+            onClick={() => resend.mutate(getValues('email'))}
+          >
+            Resend email
+          </Button>
+        </div>
+      )}
 
       <Button type="submit" className="w-full" isLoading={login.isPending}>
         Sign in

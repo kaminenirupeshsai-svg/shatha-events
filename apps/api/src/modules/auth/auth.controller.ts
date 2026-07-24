@@ -41,7 +41,7 @@ function sendAuthResult(
 
 export const signup = asyncHandler(async (req: Request, res: Response) => {
   const result = await authService.signup(req.body);
-  sendAuthResult(res, result, 201);
+  res.status(201).json(result);
 });
 
 export const login = asyncHandler(async (req: Request, res: Response) => {
@@ -74,10 +74,10 @@ export const resetPassword = asyncHandler(async (req: Request, res: Response) =>
 
 export const verifyEmail = asyncHandler(async (req: Request, res: Response) => {
   await authService.verifyEmail(req.body.token);
-  res.status(200).json({ message: 'Email verified. You can now book or list services.' });
+  res.status(200).json({ message: 'Email verified. You can now sign in.' });
 });
 
 export const resendVerification = asyncHandler(async (req: Request, res: Response) => {
-  await authService.resendVerification(req.user!.id);
-  res.status(200).json({ message: 'If your email is not yet verified, a new link is on its way.' });
+  await authService.resendVerification(req.body.email);
+  res.status(200).json({ message: 'If that email exists and needs verifying, a new link is on its way.' });
 });

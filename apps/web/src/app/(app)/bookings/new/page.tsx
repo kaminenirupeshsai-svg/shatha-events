@@ -41,7 +41,7 @@ export default function NewBookingPage() {
       />
       {user && !user.emailVerified && (
         <div className="mb-6">
-          <VerificationBanner />
+          <VerificationBanner email={user.email} />
         </div>
       )}
       <Reveal>

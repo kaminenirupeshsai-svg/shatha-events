@@ -34,6 +34,16 @@ export const VerifyEmailInputSchema = z.object({
 });
 export type VerifyEmailInput = z.infer<typeof VerifyEmailInputSchema>;
 
+// Signup no longer logs the user in (see auth.service.ts signup) - an
+// account can't be used until its email is verified, so there's no session
+// to issue yet. This just confirms the account was created and where the
+// verification link went.
+export const SignupResponseSchema = z.object({
+  message: z.string(),
+  email: z.string(),
+});
+export type SignupResponse = z.infer<typeof SignupResponseSchema>;
+
 // Returned by login/signup/refresh — the access token is held in memory on
 // the client (React Query cache), never localStorage; the refresh token
 // travels only as an httpOnly cookie and never appears in this body.
