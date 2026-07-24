@@ -27,6 +27,10 @@ export const queryKeys = {
   allBookings: (query?: Record<string, unknown>) => ['bookings', 'all', query ?? {}] as const,
   booking: (id: string) => ['bookings', id] as const,
   notifications: (query?: Record<string, unknown>) => ['notifications', query ?? {}] as const,
+  // Prefixed with 'notifications' (not a sibling top-level key) so the
+  // broad `invalidateQueries({ queryKey: ['notifications'] })` calls after
+  // mark-read/mark-all-read already catch this too, with no extra wiring.
+  unreadNotificationCount: ['notifications', 'unread-count'] as const,
   vendors: (query?: Record<string, unknown>) => ['vendors', query ?? {}] as const,
   adminStats: ['admin', 'stats'] as const,
 };

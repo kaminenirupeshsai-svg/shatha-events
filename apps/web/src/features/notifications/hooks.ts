@@ -18,6 +18,18 @@ export function useNotifications(query: Partial<NotificationListQuery> = {}) {
   });
 }
 
+// The true unread count across ALL of a user's notifications, not just
+// whatever page/limit happens to be loaded elsewhere - the bell badge and
+// the notifications page's "mark all read" button both need this real
+// total, not a count derived from a partial, paginated list.
+export function useUnreadNotificationCount() {
+  return useQuery({
+    queryKey: queryKeys.unreadNotificationCount,
+    queryFn: () => apiClient.get<{ count: number }>(endpoints.notifications.unreadCount),
+    refetchInterval: 60_000,
+  });
+}
+
 export function useMarkNotificationRead() {
   const queryClient = useQueryClient();
   return useMutation({

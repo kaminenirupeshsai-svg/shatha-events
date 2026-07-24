@@ -384,6 +384,21 @@ describe.skipIf(!mongoAvailable)('booking lifecycle (integration, requires Mongo
     ).toBe(true);
   });
 
+  it('reports the real unread count (not capped by any list page size) and clears it on mark-all-read', async () => {
+    const before = await request(app).get('/api/notifications/unread-count').set('Authorization', `Bearer ${clientToken}`);
+    expect(before.status).toBe(200);
+    expect(before.body.count).toBeGreaterThanOrEqual(1);
+
+    const markAll = await request(app)
+      .patch('/api/notifications/read-all')
+      .set('Authorization', `Bearer ${clientToken}`);
+    expect(markAll.status).toBe(204);
+
+    const after = await request(app).get('/api/notifications/unread-count').set('Authorization', `Bearer ${clientToken}`);
+    expect(after.status).toBe(200);
+    expect(after.body.count).toBe(0);
+  });
+
   it('admin creates a task on the booking, assignee sees it under /tasks/mine, and can complete it', async () => {
     const created = await request(app)
       .post(`/api/bookings/${bookingId}/tasks`)

@@ -42,6 +42,7 @@ export const endpoints = {
     list: '/api/notifications',
     markRead: (id: string) => `/api/notifications/${id}/read`,
     markAllRead: '/api/notifications/read-all',
+    unreadCount: '/api/notifications/unread-count',
   },
   contact: {
     submit: '/api/contact',

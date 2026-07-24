@@ -8,15 +8,23 @@ import { Pagination } from '@/components/ui/pagination';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatDateTime, cn } from '@/lib/utils';
-import { useMarkAllNotificationsRead, useMarkNotificationRead, useNotifications } from '@/features/notifications/hooks';
+import {
+  useMarkAllNotificationsRead,
+  useMarkNotificationRead,
+  useNotifications,
+  useUnreadNotificationCount,
+} from '@/features/notifications/hooks';
 
 export default function NotificationsPage() {
   const [page, setPage] = useState(1);
   const { data, isLoading } = useNotifications({ page, limit: 15 });
+  const { data: unreadData } = useUnreadNotificationCount();
   const markRead = useMarkNotificationRead();
   const markAllRead = useMarkAllNotificationsRead();
   const items = data?.items ?? [];
-  const hasUnread = items.some((n) => !n.isRead);
+  // The real total, not just this page - otherwise "Mark all read" can end
+  // up disabled while unread notifications still exist on other pages.
+  const hasUnread = (unreadData?.count ?? 0) > 0;
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">

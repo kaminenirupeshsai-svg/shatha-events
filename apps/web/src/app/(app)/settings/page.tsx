@@ -16,7 +16,7 @@ const THEME_OPTIONS = [
 
 export default function SettingsPage() {
   const { data: user, isLoading } = useMe();
-  const { setTheme } = useTheme();
+  const { theme, setTheme } = useTheme();
   const updateSettings = useUpdateSettings();
   const [mounted, setMounted] = useState(false);
 
@@ -36,7 +36,10 @@ export default function SettingsPage() {
             <div className="mt-4 grid grid-cols-3 gap-3" role="radiogroup" aria-label="Theme">
               {THEME_OPTIONS.map((opt) => {
                 const Icon = opt.icon;
-                const active = user.theme === opt.value;
+                // Driven by the live theme, not user.theme - so the selected
+                // option always matches what's actually on screen, including
+                // while a save is still in flight.
+                const active = theme === opt.value;
                 return (
                   <button
                     key={opt.value}
@@ -44,8 +47,17 @@ export default function SettingsPage() {
                     role="radio"
                     aria-checked={active}
                     onClick={() => {
+                      const previousTheme = theme ?? 'system';
                       setTheme(opt.value);
-                      updateSettings.mutate({ theme: opt.value });
+                      updateSettings.mutate(
+                        { theme: opt.value },
+                        {
+                          // Applied instantly for a responsive feel, but if the
+                          // save fails, don't leave the visible theme out of
+                          // sync with the account's actual saved preference.
+                          onError: () => setTheme(previousTheme),
+                        },
+                      );
                     }}
                     className={cn(
                       'flex flex-col items-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium transition-colors',

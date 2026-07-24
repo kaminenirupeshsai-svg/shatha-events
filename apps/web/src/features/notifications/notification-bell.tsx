@@ -11,13 +11,16 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { formatRelativeTime, cn } from '@/lib/utils';
-import { useMarkNotificationRead, useNotifications } from './hooks';
+import { useMarkNotificationRead, useNotifications, useUnreadNotificationCount } from './hooks';
 
 export function NotificationBell() {
   const { data } = useNotifications({ limit: 6 });
+  const { data: unreadData } = useUnreadNotificationCount();
   const markRead = useMarkNotificationRead();
   const items = data?.items ?? [];
-  const unreadCount = items.filter((n) => !n.isRead).length;
+  // The real total across every notification, not just this dropdown's
+  // 6-item preview - a user with 12 unread shouldn't see a badge capped at 6.
+  const unreadCount = unreadData?.count ?? 0;
 
   return (
     <DropdownMenu>

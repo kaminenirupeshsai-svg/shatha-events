@@ -1,14 +1,15 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
-import { ThemeProvider } from 'next-themes';
+import { ThemeProvider, useTheme } from 'next-themes';
 import { Toaster } from 'sonner';
 import { createQueryClient } from '@/lib/query-client';
 import { refreshAccessToken } from '@/lib/api-client';
 import { useAuthStore } from '@/lib/auth-store';
 import { useRealtimeUpdates } from '@/lib/socket-client';
+import { useMe } from '@/features/auth/hooks';
 
 /**
  * On first load the access token is empty (it only ever lives in memory), so
@@ -42,6 +43,28 @@ function AuthBootstrap() {
   return null;
 }
 
+/**
+ * next-themes persists purely to localStorage, entirely independent of the
+ * account's saved `theme` preference (updated via Settings) - so logging in
+ * on a different browser/device never actually applied it anywhere, only
+ * stored it. This applies the account's preference once per login (keyed by
+ * user id, so switching accounts on a shared device re-syncs too) without
+ * fighting further manual changes for that same session.
+ */
+function ThemeSync() {
+  const { data: user } = useMe();
+  const { theme, setTheme } = useTheme();
+  const syncedForUserId = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!user || syncedForUserId.current === user.id) return;
+    syncedForUserId.current = user.id;
+    if (user.theme !== theme) setTheme(user.theme);
+  }, [user, theme, setTheme]);
+
+  return null;
+}
+
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => createQueryClient());
 
@@ -49,6 +72,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
         <AuthBootstrap />
+        <ThemeSync />
         {children}
         <Toaster
           position="top-right"
