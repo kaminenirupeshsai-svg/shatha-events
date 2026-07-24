@@ -64,6 +64,17 @@ describe('input validation (no DB required - rejected before the controller runs
     const res = await request(app).post('/api/auth/resend-verification').send({ email: 'not-an-email' });
     expect(res.status).toBe(400);
   });
+
+  it('rejects verify-email with a non-6-digit code', async () => {
+    const res = await request(app).post('/api/auth/verify-email').send({ email: 'a@b.com', otp: '42' });
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('VALIDATION_ERROR');
+  });
+
+  it('rejects verify-email with a missing email', async () => {
+    const res = await request(app).post('/api/auth/verify-email').send({ otp: '123456' });
+    expect(res.status).toBe(400);
+  });
 });
 
 describe('POST /api/contact', () => {

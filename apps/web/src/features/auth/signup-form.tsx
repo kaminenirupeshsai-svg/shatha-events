@@ -4,13 +4,14 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useForm, Controller, type FieldErrors } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Briefcase, MailCheck, User } from 'lucide-react';
+import { Briefcase, CheckCircle2, MailCheck, User } from 'lucide-react';
 import { SignupInputSchema, type SignupInput } from '@app/shared';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useSignup } from './hooks';
+import { VerifyOtpForm } from './verify-otp-form';
 
 const ROLES: { value: SignupInput['role']; label: string; description: string; icon: typeof User }[] = [
   { value: 'client', label: "I'm a client", description: 'Book vendors for my event', icon: User },
@@ -20,6 +21,7 @@ const ROLES: { value: SignupInput['role']; label: string; description: string; i
 export function SignupForm() {
   const signup = useSignup();
   const [submittedEmail, setSubmittedEmail] = useState<string | null>(null);
+  const [verified, setVerified] = useState(false);
 
   const {
     register,
@@ -44,17 +46,27 @@ export function SignupForm() {
     });
   }, onInvalid);
 
+  if (submittedEmail && verified) {
+    return (
+      <div className="flex flex-col items-center gap-3 rounded-xl border border-line bg-emerald-tint p-6 text-center">
+        <CheckCircle2 className="h-8 w-8 text-emerald" aria-hidden="true" />
+        <p className="text-sm text-ink">Your email is verified. You can sign in now.</p>
+        <Button asChild size="sm" className="mt-1">
+          <Link href="/login">Go to sign in</Link>
+        </Button>
+      </div>
+    );
+  }
+
   if (submittedEmail) {
     return (
       <div className="flex flex-col items-center gap-3 rounded-xl border border-line bg-emerald-tint p-6 text-center">
         <MailCheck className="h-8 w-8 text-emerald" aria-hidden="true" />
         <p className="text-sm text-ink">
-          We sent a verification link to <span className="font-semibold">{submittedEmail}</span>. Click it to
-          activate your account, then sign in.
+          We sent a 6-digit code to <span className="font-semibold">{submittedEmail}</span>. Enter it below to
+          activate your account.
         </p>
-        <Button asChild variant="outline" size="sm" className="mt-1">
-          <Link href="/login">Back to sign in</Link>
-        </Button>
+        <VerifyOtpForm email={submittedEmail} onVerified={() => setVerified(true)} />
       </div>
     );
   }

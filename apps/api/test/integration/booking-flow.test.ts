@@ -1,16 +1,34 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
 import mongoose from 'mongoose';
 import bcrypt from 'bcrypt';
 import { app } from '../../src/app.js';
 import { connectDb, disconnectDb } from '../../src/config/db.js';
 import { env } from '../../src/config/env.js';
+import { emailService } from '../../src/lib/email.service.js';
 import { User } from '../../src/models/User.js';
 import { Service } from '../../src/models/Service.js';
 import { Booking } from '../../src/models/Booking.js';
 import { Task } from '../../src/models/Task.js';
 import { Notification } from '../../src/models/Notification.js';
 import { RefreshToken } from '../../src/models/RefreshToken.js';
+
+// The 6-digit code only ever leaves the server inside the body of a sent
+// email - spying on the shared emailService singleton (the same instance
+// auth.service.ts calls) lets the suite pull the real code back out and
+// drive the actual verify-email endpoint, instead of reaching into Mongo to
+// flip emailVerified directly. Falls through to the real console driver
+// (writes to .email-log.txt) since spyOn doesn't replace the implementation.
+function spyOnEmailSend() {
+  return vi.spyOn(emailService, 'send');
+}
+
+function latestOtpFor(sendSpy: ReturnType<typeof spyOnEmailSend>, email: string): string {
+  const call = [...sendSpy.mock.calls].reverse().find(([msg]) => msg.to === email);
+  const match = call?.[0]?.body.match(/\b(\d{6})\b/);
+  if (!match) throw new Error(`No OTP found in mail sent to ${email}`);
+  return match[1]!;
+}
 
 // This suite drives the real HTTP surface against a real MongoDB and is the
 // only place the full multi-role flow (signup -> verify -> login -> vendor
@@ -45,9 +63,11 @@ describe.skipIf(!mongoAvailable)('booking lifecycle (integration, requires Mongo
   let serviceId = '';
   let bookingId = '';
   let refreshCookie = '';
+  let sendSpy: ReturnType<typeof spyOnEmailSend>;
 
   beforeAll(async () => {
     await connectDb();
+    sendSpy = spyOnEmailSend();
     // Admin accounts can't self-register (SignupRoleSchema only allows
     // client/vendor) - seed one directly, same as the real onboarding path.
     // Created straight in Mongo (not through signup()), so it gets the
@@ -61,6 +81,7 @@ describe.skipIf(!mongoAvailable)('booking lifecycle (integration, requires Mongo
   });
 
   afterAll(async () => {
+    sendSpy.mockRestore();
     await Promise.all([
       User.deleteMany({ email: { $in: [clientEmail, vendorEmail, adminEmail] } }),
       Service.deleteMany({ _id: serviceId || undefined }),
@@ -87,10 +108,16 @@ describe.skipIf(!mongoAvailable)('booking lifecycle (integration, requires Mongo
     expect(blockedLogin.status).toBe(403);
     expect(blockedLogin.body.code).toBe('EMAIL_NOT_VERIFIED');
 
-    // Stand in for "clicked the verification link" - the raw token only ever
-    // exists in the email body, nothing testable to extract it from at the
-    // HTTP layer.
-    await User.updateOne({ email: clientEmail }, { emailVerified: true });
+    const otp = latestOtpFor(sendSpy, clientEmail);
+    const wrongOtp = otp === '000000' ? '111111' : '000000';
+
+    // A wrong code is rejected before we try the real one.
+    const wrong = await request(app).post('/api/auth/verify-email').send({ email: clientEmail, otp: wrongOtp });
+    expect(wrong.status).toBe(400);
+    expect(wrong.body.code).toBe('INVALID_VERIFICATION_CODE');
+
+    const verify = await request(app).post('/api/auth/verify-email').send({ email: clientEmail, otp });
+    expect(verify.status).toBe(200);
 
     const login = await request(app).post('/api/auth/login').send({ email: clientEmail, password });
     expect(login.status).toBe(200);
@@ -117,6 +144,43 @@ describe.skipIf(!mongoAvailable)('booking lifecycle (integration, requires Mongo
       .post('/api/auth/resend-verification')
       .send({ email: `nobody-${stamp}@example.com` });
     expect(unknown.status).toBe(200);
+  });
+
+  it('locks out further guesses after too many wrong codes, and a resend issues a working replacement', async () => {
+    const throwawayEmail = `it-otp-limit-${stamp}@example.com`;
+    const signup = await request(app)
+      .post('/api/auth/signup')
+      .send({ name: 'OTP Limit Test', email: throwawayEmail, password, role: 'client' });
+    expect(signup.status).toBe(201);
+
+    const otp = latestOtpFor(sendSpy, throwawayEmail);
+    const wrongOtp = otp === '000000' ? '111111' : '000000';
+
+    // Exhaust the 5-attempt limit with wrong guesses.
+    for (let i = 0; i < 5; i += 1) {
+      const res = await request(app).post('/api/auth/verify-email').send({ email: throwawayEmail, otp: wrongOtp });
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe('INVALID_VERIFICATION_CODE');
+    }
+
+    // The originally-correct code no longer works either - the limit invalidated it.
+    const afterLimit = await request(app).post('/api/auth/verify-email').send({ email: throwawayEmail, otp });
+    expect(afterLimit.status).toBe(400);
+    expect(afterLimit.body.code).toBe('TOO_MANY_VERIFICATION_ATTEMPTS');
+
+    // Resend issues a fresh code and resets the attempt counter.
+    const resend = await request(app).post('/api/auth/resend-verification').send({ email: throwawayEmail });
+    expect(resend.status).toBe(200);
+    const freshOtp = latestOtpFor(sendSpy, throwawayEmail);
+    expect(freshOtp).not.toBe(otp);
+
+    const verify = await request(app).post('/api/auth/verify-email').send({ email: throwawayEmail, otp: freshOtp });
+    expect(verify.status).toBe(200);
+
+    const login = await request(app).post('/api/auth/login').send({ email: throwawayEmail, password });
+    expect(login.status).toBe(200);
+
+    await User.deleteOne({ email: throwawayEmail });
   });
 
   it('rejects a duplicate signup with 409', async () => {
@@ -172,7 +236,9 @@ describe.skipIf(!mongoAvailable)('booking lifecycle (integration, requires Mongo
     expect(blockedLogin.status).toBe(403);
     expect(blockedLogin.body.code).toBe('EMAIL_NOT_VERIFIED');
 
-    await User.updateOne({ email: vendorEmail }, { emailVerified: true });
+    const otp = latestOtpFor(sendSpy, vendorEmail);
+    const verify = await request(app).post('/api/auth/verify-email').send({ email: vendorEmail, otp });
+    expect(verify.status).toBe(200);
 
     const login = await request(app).post('/api/auth/login').send({ email: vendorEmail, password });
     expect(login.status).toBe(200);

@@ -30,14 +30,15 @@ export const ResetPasswordInputSchema = z.object({
 export type ResetPasswordInput = z.infer<typeof ResetPasswordInputSchema>;
 
 export const VerifyEmailInputSchema = z.object({
-  token: z.string().min(1),
+  email: z.string().trim().toLowerCase().email('Enter a valid email address'),
+  otp: z.string().trim().regex(/^\d{6}$/, 'Enter the 6-digit code'),
 });
 export type VerifyEmailInput = z.infer<typeof VerifyEmailInputSchema>;
 
 // Signup no longer logs the user in (see auth.service.ts signup) - an
 // account can't be used until its email is verified, so there's no session
 // to issue yet. This just confirms the account was created and where the
-// verification link went.
+// verification code went.
 export const SignupResponseSchema = z.object({
   message: z.string(),
   email: z.string(),

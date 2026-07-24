@@ -73,11 +73,11 @@ export const resetPassword = asyncHandler(async (req: Request, res: Response) =>
 });
 
 export const verifyEmail = asyncHandler(async (req: Request, res: Response) => {
-  await authService.verifyEmail(req.body.token);
+  await authService.verifyEmail(req.body.email, req.body.otp);
   res.status(200).json({ message: 'Email verified. You can now sign in.' });
 });
 
 export const resendVerification = asyncHandler(async (req: Request, res: Response) => {
   await authService.resendVerification(req.body.email);
-  res.status(200).json({ message: 'If that email exists and needs verifying, a new link is on its way.' });
+  res.status(200).json({ message: 'If that email exists and needs verifying, a new code is on its way.' });
 });

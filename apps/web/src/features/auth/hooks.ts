@@ -99,11 +99,14 @@ export function useVerifyEmail() {
     mutationFn: (input: VerifyEmailInput) =>
       apiClient.post<{ message?: string }>(endpoints.auth.verifyEmail, input, { skipAuth: true }),
     onSuccess: () => {
+      // A no-op if nobody's logged in yet (useMe is disabled without an
+      // access token) - only matters for the defense-in-depth case of an
+      // already-authenticated session re-verifying.
       queryClient.invalidateQueries({ queryKey: queryKeys.me });
-      toast.success('Email verified — you can now book or list services.');
+      toast.success('Email verified — you can now sign in.');
     },
     onError: (err: Error) => {
-      toast.error(err.message || 'That verification link is invalid or has expired.');
+      toast.error(err.message || 'That code is invalid or has expired.');
     },
   });
 }
@@ -115,10 +118,10 @@ export function useResendVerification() {
     mutationFn: (email: string) =>
       apiClient.post<{ message?: string }>(endpoints.auth.resendVerification, { email }, { skipAuth: true }),
     onSuccess: () => {
-      toast.success('If that email needs verifying, a new link is on its way.');
+      toast.success('If that email needs verifying, a new code is on its way.');
     },
     onError: (err: Error) => {
-      toast.error(err.message || 'Could not send the verification email.');
+      toast.error(err.message || 'Could not send the verification code.');
     },
   });
 }

@@ -10,13 +10,13 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ApiError } from '@/lib/api-client';
-import { useLogin, useResendVerification } from './hooks';
+import { useLogin } from './hooks';
+import { VerifyOtpForm } from './verify-otp-form';
 
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const login = useLogin();
-  const resend = useResendVerification();
 
   const {
     register,
@@ -44,6 +44,14 @@ export function LoginForm() {
   }, onInvalid);
 
   const unverified = login.error instanceof ApiError && login.error.code === 'EMAIL_NOT_VERIFIED';
+
+  const retryAfterVerifying = () => {
+    // The email/password they just typed are still in the form - re-run the
+    // exact login attempt now that verification has unblocked it.
+    login.mutate(getValues(), {
+      onSuccess: () => router.push(searchParams.get('next') || '/dashboard'),
+    });
+  };
 
   return (
     <form onSubmit={onSubmit} noValidate className="space-y-5">
@@ -87,23 +95,14 @@ export function LoginForm() {
       </div>
 
       {unverified && (
-        <div className="flex flex-col items-start gap-3 rounded-xl border border-amber/40 bg-amber-tint px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-3 rounded-xl border border-amber/40 bg-amber-tint px-4 py-3.5">
           <div className="flex items-start gap-3">
             <MailWarning className="mt-0.5 h-4 w-4 shrink-0 text-[#8C6A22] dark:text-amber" aria-hidden="true" />
             <p className="text-sm text-[#8C6A22] dark:text-amber">
-              Verify your email before signing in — check your inbox for the link.
+              Verify your email before signing in — enter the code we sent you.
             </p>
           </div>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="shrink-0"
-            isLoading={resend.isPending}
-            onClick={() => resend.mutate(getValues('email'))}
-          >
-            Resend email
-          </Button>
+          <VerifyOtpForm email={getValues('email')} onVerified={retryAfterVerifying} />
         </div>
       )}
 

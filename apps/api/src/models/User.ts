@@ -28,8 +28,12 @@ const UserSchema = new Schema(
     // See the gates in services.service.ts createService and
     // bookings.service.ts createBooking.
     emailVerified: { type: Boolean, default: true },
-    emailVerificationTokenHash: { type: String, default: null, select: false },
-    emailVerificationExpiresAt: { type: Date, default: null, select: false },
+    emailVerificationOtpHash: { type: String, default: null, select: false },
+    emailVerificationOtpExpiresAt: { type: Date, default: null, select: false },
+    // Wrong-code guesses against the current OTP; reset on every resend and
+    // on a successful verify. Capped in auth.service.ts to blunt brute-forcing
+    // a 6-digit (1-in-a-million) code beyond what the IP rate limiter alone would.
+    emailVerificationAttempts: { type: Number, default: 0, select: false },
   },
   { timestamps: true },
 );
