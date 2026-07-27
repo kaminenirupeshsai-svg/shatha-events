@@ -24,13 +24,25 @@ A full-stack event-planning booking platform: clients browse vetted vendor servi
 
 ## Prerequisites
 
-- Node 20+, pnpm, a MongoDB instance (local `mongod` or a free [MongoDB Atlas](https://www.mongodb.com/cloud/atlas/register) cluster).
+- [Node.js](https://nodejs.org) 20+
+- [pnpm](https://pnpm.io) (`corepack enable`, or `npm install -g pnpm`)
+- A MongoDB instance to point the app at — see below.
+
+### Getting a local MongoDB running
+
+Install [MongoDB Community Server](https://www.mongodb.com/try/download/community) for your OS and start it — it listens on `127.0.0.1:27017` by default, which is exactly what `apps/api/.env.example`'s `MONGODB_URI` already points at, so no edits needed there once it's running.
+
+- **Windows**: the installer offers to set it up as a background service automatically — once installed, it's just always running.
+- **Mac**: `brew tap mongodb/brew && brew install mongodb-community && brew services start mongodb-community`
+- **Linux**: follow the [distro-specific instructions](https://www.mongodb.com/docs/manual/administration/install-on-linux/) on the download page.
+
+No account, no internet connection needed after install, and no data leaves your machine — this is the right choice if you don't want to share a database with anyone else. (A free [MongoDB Atlas](https://www.mongodb.com/cloud/atlas/register) cloud cluster is the other option, useful if you want your data reachable from somewhere other than your own machine — not needed for a local demo.)
 
 ## Setup
 
 ```sh
 pnpm install
-cp apps/api/.env.example apps/api/.env       # fill in MONGODB_URI + generate JWT secrets
+cp apps/api/.env.example apps/api/.env       # generate JWT secrets (see below); MONGODB_URI's default already matches a local MongoDB install
 cp apps/web/.env.local.example apps/web/.env.local
 pnpm --filter @app/api seed                  # optional: demo accounts + sample data
 pnpm dev                                     # runs the API on :4000 and web on :3000
