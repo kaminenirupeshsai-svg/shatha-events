@@ -44,4 +44,7 @@ export const queryKeys = {
   unreadNotificationCount: ['notifications', 'unread-count'] as const,
   vendors: (query?: Record<string, unknown>) => ['vendors', query ?? {}] as const,
   adminStats: ['admin', 'stats'] as const,
+  bookingReviews: (bookingId: string) => ['reviews', 'booking', bookingId] as const,
+  serviceReviews: (serviceId: string, query?: Record<string, unknown>) =>
+    ['reviews', 'service', serviceId, query ?? {}] as const,
 };

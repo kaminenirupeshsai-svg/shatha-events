@@ -3,6 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { motion, useReducedMotion } from 'framer-motion';
+import { Star } from 'lucide-react';
 import { SERVICE_CATEGORY_LABELS, type ServiceDto } from '@app/shared';
 import { formatPriceRange } from '@/lib/utils';
 import { cardHover } from '@/lib/motion';
@@ -41,7 +42,15 @@ export function ServiceCard({ service }: { service: ServiceDto }) {
           )}
         </div>
         <div className="flex flex-1 flex-col gap-1.5 p-5">
-          <p className="eyebrow">{SERVICE_CATEGORY_LABELS[service.category]}</p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="eyebrow">{SERVICE_CATEGORY_LABELS[service.category]}</p>
+            {service.reviewCount > 0 && (
+              <span className="flex items-center gap-1 text-xs font-medium text-ink-soft">
+                <Star className="h-3.5 w-3.5 fill-amber text-amber" aria-hidden="true" />
+                {service.avgRating} ({service.reviewCount})
+              </span>
+            )}
+          </div>
           <h3 className="font-display text-lg font-semibold text-ink">{service.title}</h3>
           <p className="text-sm font-medium text-emerald">
             {formatPriceRange(service.priceRange.min, service.priceRange.max)}

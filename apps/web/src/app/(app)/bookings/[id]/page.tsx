@@ -14,6 +14,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { formatCurrency, formatDate, formatDateTime } from '@/lib/utils';
 import { useBooking, useCancelBooking } from '@/features/bookings/hooks';
 import { AdminStatusControl, BOOKING_STATUS_LABELS } from '@/features/bookings/status-control';
+import { BookingReviewsSection } from '@/features/reviews/booking-reviews-section';
 import { useMe } from '@/features/auth/hooks';
 
 const EVENT_TYPE_LABELS: Record<string, string> = {
@@ -140,6 +141,12 @@ export default function BookingDetailPage() {
           </ol>
         </div>
       </Reveal>
+
+      {booking.status === 'completed' && (
+        <Reveal delay={0.1} className="mt-6">
+          <BookingReviewsSection booking={booking} canReview={user?.role === 'client'} />
+        </Reveal>
+      )}
 
       <ConfirmDialog
         open={cancelOpen}

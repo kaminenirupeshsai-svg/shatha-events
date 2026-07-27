@@ -22,6 +22,8 @@ export function toServiceDto(doc: ServiceDoc): ServiceDto {
     vendorId: vendor ? vendor._id.toString() : null,
     vendorName: isPopulated ? (vendor?.name ?? null) : null,
     isActive: doc.isActive,
+    avgRating: doc.avgRating ?? null,
+    reviewCount: doc.reviewCount ?? 0,
     createdAt: (doc.createdAt as unknown as Date).toISOString(),
   };
 }

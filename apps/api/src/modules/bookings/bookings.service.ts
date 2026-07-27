@@ -179,7 +179,10 @@ async function listWithFilter(filter: Record<string, unknown>, query: BookingLis
   return buildPaginatedResult(docs.map(toBookingDto), total, query.page, query.limit);
 }
 
-async function assertCanView(doc: BookingDoc, viewer: AuthUser): Promise<void> {
+// Exported for reuse by reviews.service.ts - a review thread on a booking is
+// visible to exactly whoever can view the booking itself (client who booked,
+// vendor with a service on it, or admin), so this is the one place that rule lives.
+export async function assertCanView(doc: BookingDoc, viewer: AuthUser): Promise<void> {
   if (viewer.role === 'admin') return;
   if (viewer.role === 'client') {
     if (idOf(doc.clientId) !== viewer.id) throw AppError.forbidden('Not your booking');

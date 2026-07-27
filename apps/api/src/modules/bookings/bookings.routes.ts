@@ -10,6 +10,7 @@ import { auth } from '../../middleware/auth.js';
 import { requireRole } from '../../middleware/role.js';
 import { validate } from '../../middleware/validate.js';
 import { bookingTasksRouter } from '../tasks/tasks.routes.js';
+import { bookingReviewsRouter } from '../reviews/reviews.routes.js';
 import * as bookingsController from './bookings.controller.js';
 
 const IdParamsSchema = z.object({ id: MongoIdSchema });
@@ -47,3 +48,6 @@ bookingsRouter.patch(
 
 // Nested task management for a specific booking - admin-only, see modules/tasks.
 bookingsRouter.use('/:id/tasks', validate(IdParamsSchema, 'params'), bookingTasksRouter);
+
+// Nested review thread for a specific booking - see modules/reviews.
+bookingsRouter.use('/:id/reviews', validate(IdParamsSchema, 'params'), bookingReviewsRouter);

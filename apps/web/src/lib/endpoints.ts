@@ -29,6 +29,7 @@ export const endpoints = {
     create: '/api/services',
     update: (id: string) => `/api/services/${id}`,
     remove: (id: string) => `/api/services/${id}`,
+    reviews: (id: string) => `/api/services/${id}/reviews`,
   },
   bookings: {
     my: '/api/bookings/my',
@@ -37,6 +38,7 @@ export const endpoints = {
     detail: (id: string) => `/api/bookings/${id}`,
     create: '/api/bookings',
     updateStatus: (id: string) => `/api/bookings/${id}/status`,
+    reviews: (id: string) => `/api/bookings/${id}/reviews`,
   },
   notifications: {
     list: '/api/notifications',

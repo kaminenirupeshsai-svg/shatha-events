@@ -6,6 +6,7 @@ import { requireRole } from '../../middleware/role.js';
 import { validate } from '../../middleware/validate.js';
 import { imageUpload } from '../../middleware/upload.js';
 import { uploadRateLimiter } from '../../middleware/rate-limit.js';
+import { serviceReviewsRouter } from '../reviews/reviews.routes.js';
 import * as servicesController from './services.controller.js';
 
 const IdParamsSchema = z.object({ id: MongoIdSchema });
@@ -49,3 +50,6 @@ servicesRouter.post(
   imageUpload.array('images', 5),
   servicesController.uploadImages,
 );
+
+// Public review list for a service - see modules/reviews.
+servicesRouter.use('/:id/reviews', validate(IdParamsSchema, 'params'), serviceReviewsRouter);

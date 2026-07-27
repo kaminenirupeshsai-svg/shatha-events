@@ -12,6 +12,7 @@ import { Booking } from '../../src/models/Booking.js';
 import { Task } from '../../src/models/Task.js';
 import { Notification } from '../../src/models/Notification.js';
 import { RefreshToken } from '../../src/models/RefreshToken.js';
+import { Review } from '../../src/models/Review.js';
 
 // The 6-digit code only ever leaves the server inside the body of a sent
 // email - spying on the shared emailService singleton (the same instance
@@ -492,6 +493,80 @@ describe.skipIf(!mongoAvailable)('booking lifecycle (integration, requires Mongo
     expect(noConflict.status).toBe(201);
 
     await Booking.deleteMany({ _id: { $in: [firstBookingId, noConflict.body.id] } });
+  });
+
+  it('lets a client review a vendor once a booking is completed, blocks it before, and prevents a duplicate', async () => {
+    const eventDate = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString();
+    const create = await request(app)
+      .post('/api/bookings')
+      .set('Authorization', `Bearer ${clientToken}`)
+      .send({
+        eventType: 'social',
+        eventDate,
+        guestCount: 15,
+        services: [{ serviceId, notes: '' }],
+        budget: 400,
+      });
+    expect(create.status).toBe(201);
+    const reviewBookingId = create.body.id;
+
+    // Too early - the booking isn't completed yet.
+    const tooEarly = await request(app)
+      .post(`/api/bookings/${reviewBookingId}/reviews`)
+      .set('Authorization', `Bearer ${clientToken}`)
+      .send({ serviceId, rating: 5 });
+    expect(tooEarly.status).toBe(400);
+    expect(tooEarly.body.code).toBe('BOOKING_NOT_COMPLETED');
+
+    // Walk it through the only legal path to 'completed'.
+    for (const status of ['reviewed', 'confirmed', 'in_progress', 'completed']) {
+      const res = await request(app)
+        .patch(`/api/bookings/${reviewBookingId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ status });
+      expect(res.status).toBe(200);
+    }
+
+    // A service id that isn't actually on this booking is rejected.
+    const wrongService = await request(app)
+      .post(`/api/bookings/${reviewBookingId}/reviews`)
+      .set('Authorization', `Bearer ${clientToken}`)
+      .send({ serviceId: new mongoose.Types.ObjectId().toString(), rating: 4 });
+    expect(wrongService.status).toBe(400);
+    expect(wrongService.body.code).toBe('SERVICE_NOT_IN_BOOKING');
+
+    const review = await request(app)
+      .post(`/api/bookings/${reviewBookingId}/reviews`)
+      .set('Authorization', `Bearer ${clientToken}`)
+      .send({ serviceId, rating: 5, comment: 'Wonderful to work with.' });
+    expect(review.status).toBe(201);
+    expect(review.body.rating).toBe(5);
+    expect(review.body.serviceId).toBe(serviceId);
+    expect(review.body.clientName).toBe('Integration Client');
+
+    const duplicate = await request(app)
+      .post(`/api/bookings/${reviewBookingId}/reviews`)
+      .set('Authorization', `Bearer ${clientToken}`)
+      .send({ serviceId, rating: 3 });
+    expect(duplicate.status).toBe(409);
+    expect(duplicate.body.code).toBe('ALREADY_REVIEWED');
+
+    const bookingReviews = await request(app)
+      .get(`/api/bookings/${reviewBookingId}/reviews`)
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(bookingReviews.status).toBe(200);
+    expect(bookingReviews.body).toHaveLength(1);
+
+    const serviceReviews = await request(app).get(`/api/services/${serviceId}/reviews`);
+    expect(serviceReviews.status).toBe(200);
+    expect(serviceReviews.body.items.some((r: { id: string }) => r.id === review.body.id)).toBe(true);
+
+    const serviceAfter = await request(app).get(`/api/services/${serviceId}`);
+    expect(serviceAfter.body.avgRating).toBe(5);
+    expect(serviceAfter.body.reviewCount).toBeGreaterThanOrEqual(1);
+
+    await Review.deleteMany({ bookingId: reviewBookingId });
+    await Booking.deleteOne({ _id: reviewBookingId });
   });
 
   it('lets the client cancel their own booking', async () => {

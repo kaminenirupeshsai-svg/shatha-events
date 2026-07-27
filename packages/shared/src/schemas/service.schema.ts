@@ -33,6 +33,8 @@ export const ServiceDtoSchema = z.object({
   vendorId: MongoIdSchema.nullable(),
   vendorName: z.string().nullable(),
   isActive: z.boolean(),
+  avgRating: z.number().nullable(),
+  reviewCount: z.number(),
   createdAt: z.string(),
 });
 export type ServiceDto = z.infer<typeof ServiceDtoSchema>;

@@ -33,6 +33,8 @@ const mockService: ServiceDto = {
   vendorId: '507f1f77bcf86cd799439012',
   vendorName: 'Lumen Studios',
   isActive: true,
+  avgRating: null,
+  reviewCount: 0,
   createdAt: new Date().toISOString(),
 };
 

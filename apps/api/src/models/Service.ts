@@ -20,6 +20,11 @@ const ServiceSchema = new Schema(
     images: { type: [String], default: [] },
     vendorId: { type: Schema.Types.ObjectId, ref: 'User', default: null, index: true },
     isActive: { type: Boolean, default: true },
+    // Denormalized from the Review collection (see reviews.service.ts) so
+    // service cards/listings can show a rating without a query per card.
+    // Always recomputed from source, never incremented in place.
+    avgRating: { type: Number, default: null },
+    reviewCount: { type: Number, default: 0 },
   },
   { timestamps: true },
 );
