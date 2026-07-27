@@ -14,7 +14,6 @@ import {
 import { PageHeader } from '@/components/shared/page-header';
 import { ServiceCard } from '@/components/shared/service-card';
 import { StaggerItem, StaggerReveal } from '@/components/shared/reveal';
-import { VerificationBanner } from '@/components/shared/verification-banner';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Pagination } from '@/components/ui/pagination';
@@ -72,7 +71,6 @@ export default function ServicesPage() {
     return (
       <div className="space-y-6">
         <PageHeader eyebrow="Vendor listings" title="My services" subtitle="Manage the listings clients see when they browse Shatha Events." />
-        {!user.emailVerified && <VerificationBanner email={user.email} />}
         <EmptyState
           icon={pending ? Clock : ShieldAlert}
           title={pending ? 'Your vendor account is awaiting approval' : 'Your vendor application was not approved'}
@@ -98,8 +96,6 @@ export default function ServicesPage() {
         }
         action={isVendor ? <CreateServiceButton /> : undefined}
       />
-
-      {isVendor && user && !user.emailVerified && <VerificationBanner email={user.email} />}
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="relative w-full sm:max-w-xs">
