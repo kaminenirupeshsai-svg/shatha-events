@@ -47,4 +47,5 @@ export const queryKeys = {
   bookingReviews: (bookingId: string) => ['reviews', 'booking', bookingId] as const,
   serviceReviews: (serviceId: string, query?: Record<string, unknown>) =>
     ['reviews', 'service', serviceId, query ?? {}] as const,
+  messageThread: (bookingId: string, vendorId: string) => ['messages', bookingId, vendorId] as const,
 };

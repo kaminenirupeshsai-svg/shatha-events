@@ -62,7 +62,13 @@ export const BookingDtoSchema = z.object({
   eventDate: z.string(),
   guestCount: z.number(),
   services: z.array(
-    z.object({ serviceId: MongoIdSchema, title: z.string(), notes: z.string().nullable() }),
+    z.object({
+      serviceId: MongoIdSchema,
+      title: z.string(),
+      notes: z.string().nullable(),
+      vendorId: MongoIdSchema.nullable(),
+      vendorName: z.string().nullable(),
+    }),
   ),
   budget: z.number().nullable(),
   message: z.string().nullable(),

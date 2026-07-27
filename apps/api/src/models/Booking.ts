@@ -15,6 +15,11 @@ const BookingServiceItemSchema = new Schema(
     serviceId: { type: Schema.Types.ObjectId, ref: 'Service', required: true },
     title: { type: String, required: true },
     notes: { type: String, default: null },
+    // Snapshotted from the Service at booking-creation time (like title
+    // already is), not looked up live - stays accurate even if the service
+    // is later reassigned or deleted. Null on bookings created before this
+    // field existed; the messaging feature just has nothing to show there.
+    vendorId: { type: Schema.Types.ObjectId, ref: 'User', default: null },
   },
   { _id: false },
 );

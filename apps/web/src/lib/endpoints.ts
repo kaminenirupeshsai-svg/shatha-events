@@ -39,6 +39,7 @@ export const endpoints = {
     create: '/api/bookings',
     updateStatus: (id: string) => `/api/bookings/${id}/status`,
     reviews: (id: string) => `/api/bookings/${id}/reviews`,
+    messages: (id: string, vendorId: string) => `/api/bookings/${id}/messages/${vendorId}`,
   },
   notifications: {
     list: '/api/notifications',

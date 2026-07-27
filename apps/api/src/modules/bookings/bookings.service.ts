@@ -21,6 +21,7 @@ import { toBookingDto } from './bookings.mapper.js';
 const POPULATE = [
   { path: 'clientId', select: 'name' },
   { path: 'assignedAdminId', select: 'name' },
+  { path: 'services.vendorId', select: 'name' },
 ];
 
 const SORT_MAP: Record<BookingListQuery['sort'], Record<string, 1 | -1>> = {
@@ -99,6 +100,7 @@ export async function createBooking(client: AuthUser, input: CreateBookingInput)
     );
   }
   const titleById = new Map(serviceDocs.map((s) => [s._id.toString(), s.title]));
+  const vendorIdById = new Map(serviceDocs.map((s) => [s._id.toString(), s.vendorId]));
 
   await assertNoVendorDoubleBooking(input.eventDate, serviceDocs);
 
@@ -111,6 +113,7 @@ export async function createBooking(client: AuthUser, input: CreateBookingInput)
       serviceId: item.serviceId,
       title: titleById.get(item.serviceId),
       notes: item.notes ?? null,
+      vendorId: vendorIdById.get(item.serviceId) ?? null,
     })),
     budget: input.budget ?? null,
     message: input.message ?? null,

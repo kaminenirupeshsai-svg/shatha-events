@@ -15,6 +15,7 @@ import { formatCurrency, formatDate, formatDateTime } from '@/lib/utils';
 import { useBooking, useCancelBooking } from '@/features/bookings/hooks';
 import { AdminStatusControl, BOOKING_STATUS_LABELS } from '@/features/bookings/status-control';
 import { BookingReviewsSection } from '@/features/reviews/booking-reviews-section';
+import { MessageThreadDialog } from '@/features/messages/message-thread-dialog';
 import { useMe } from '@/features/auth/hooks';
 
 const EVENT_TYPE_LABELS: Record<string, string> = {
@@ -57,6 +58,11 @@ export default function BookingDetailPage() {
   }
 
   const canCancel = user?.role === 'client' && BOOKING_STATUS_TRANSITIONS[booking.status].includes('cancelled');
+  // One thread per distinct vendor, not per service - a vendor with two
+  // services on the same booking still has a single conversation with the client.
+  const distinctVendors = Array.from(
+    new Map(booking.services.filter((s) => s.vendorId).map((s) => [s.vendorId as string, s.vendorName ?? 'Vendor'])),
+  ).map(([vendorId, vendorName]) => ({ vendorId, vendorName }));
   // Vendors have no standalone bookings list (only /api/bookings/my exists,
   // and it's client-only) - they reach a booking's detail page from a
   // BookingCard on their dashboard, so that's where "back" should return to.
@@ -141,6 +147,37 @@ export default function BookingDetailPage() {
           </ol>
         </div>
       </Reveal>
+
+      {(user?.role === 'client' || user?.role === 'vendor') && distinctVendors.length > 0 && (
+        <Reveal delay={0.075} className="mt-6">
+          <div className="rounded-2xl border border-line bg-surface p-6 shadow-card sm:p-8">
+            <h2 className="mb-5 font-display text-lg font-semibold text-ink">Messages</h2>
+            <div className="flex flex-wrap gap-3">
+              {user.role === 'client'
+                ? distinctVendors.map((v) => (
+                    <MessageThreadDialog
+                      key={v.vendorId}
+                      bookingId={booking.id}
+                      vendorId={v.vendorId}
+                      triggerLabel={`Message ${v.vendorName}`}
+                      title={`Conversation with ${v.vendorName}`}
+                    />
+                  ))
+                : distinctVendors
+                    .filter((v) => v.vendorId === user.id)
+                    .map((v) => (
+                      <MessageThreadDialog
+                        key={v.vendorId}
+                        bookingId={booking.id}
+                        vendorId={v.vendorId}
+                        triggerLabel="Message client"
+                        title={`Conversation with ${booking.clientName}`}
+                      />
+                    ))}
+            </div>
+          </div>
+        </Reveal>
+      )}
 
       {booking.status === 'completed' && (
         <Reveal delay={0.1} className="mt-6">

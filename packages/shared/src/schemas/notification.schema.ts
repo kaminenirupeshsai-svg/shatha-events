@@ -6,6 +6,7 @@ export const NotificationTypeSchema = z.enum([
   'new_booking',
   'task_assigned',
   'vendor_status_changed',
+  'message_received',
 ]);
 export type NotificationType = z.infer<typeof NotificationTypeSchema>;
 
@@ -28,6 +29,11 @@ export const NotificationSocketEventSchema = z.object({
 export const BookingStatusChangedSocketEventSchema = z.object({
   bookingId: MongoIdSchema,
   status: z.string(),
+});
+
+export const MessageReceivedSocketEventSchema = z.object({
+  bookingId: MongoIdSchema,
+  vendorId: MongoIdSchema,
 });
 
 export const NotificationListQuerySchema = PaginationQuerySchema.extend({

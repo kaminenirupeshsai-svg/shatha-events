@@ -62,12 +62,21 @@ export function useRealtimeUpdates() {
       toast.message(payload.notification.message);
     }
 
+    // The bell/toast for a new message already comes through
+    // handleNotification (message_received) - this just refreshes an
+    // already-open thread so it doesn't wait for the 15s poll fallback.
+    function handleNewMessage(payload: { bookingId: string; vendorId: string }) {
+      queryClient.invalidateQueries({ queryKey: queryKeys.messageThread(payload.bookingId, payload.vendorId) });
+    }
+
     activeSocket.on('booking:status-changed', handleStatusChanged);
     activeSocket.on('notification:new', handleNotification);
+    activeSocket.on('message:new', handleNewMessage);
 
     return () => {
       activeSocket.off('booking:status-changed', handleStatusChanged);
       activeSocket.off('notification:new', handleNotification);
+      activeSocket.off('message:new', handleNewMessage);
     };
   }, [accessToken, queryClient]);
 }

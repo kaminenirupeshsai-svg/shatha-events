@@ -19,11 +19,17 @@ export function toBookingDto(doc: BookingDoc): BookingDto {
     eventType: doc.eventType as BookingDto['eventType'],
     eventDate: (doc.eventDate as unknown as Date).toISOString(),
     guestCount: doc.guestCount,
-    services: doc.services.map((item) => ({
-      serviceId: item.serviceId.toString(),
-      title: item.title,
-      notes: item.notes ?? null,
-    })),
+    services: doc.services.map((item) => {
+      const vendor = item.vendorId as unknown as MaybePopulatedUser | null;
+      const vendorPopulated = Boolean(vendor && typeof vendor === 'object' && 'name' in vendor);
+      return {
+        serviceId: item.serviceId.toString(),
+        title: item.title,
+        notes: item.notes ?? null,
+        vendorId: vendor ? vendor._id.toString() : null,
+        vendorName: vendorPopulated ? (vendor?.name ?? null) : null,
+      };
+    }),
     budget: doc.budget ?? null,
     message: doc.message ?? null,
     status: doc.status as BookingDto['status'],

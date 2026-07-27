@@ -13,6 +13,7 @@ import { Task } from '../../src/models/Task.js';
 import { Notification } from '../../src/models/Notification.js';
 import { RefreshToken } from '../../src/models/RefreshToken.js';
 import { Review } from '../../src/models/Review.js';
+import { Message } from '../../src/models/Message.js';
 
 // The 6-digit code only ever leaves the server inside the body of a sent
 // email - spying on the shared emailService singleton (the same instance
@@ -567,6 +568,65 @@ describe.skipIf(!mongoAvailable)('booking lifecycle (integration, requires Mongo
 
     await Review.deleteMany({ bookingId: reviewBookingId });
     await Booking.deleteOne({ _id: reviewBookingId });
+  });
+
+  it('lets a client and vendor message each other on a booking, visible to admin, and rejects a vendor id not on the booking', async () => {
+    const serviceRes = await request(app).get(`/api/services/${serviceId}`);
+    const vendorIdForService = serviceRes.body.vendorId as string;
+
+    const create = await request(app)
+      .post('/api/bookings')
+      .set('Authorization', `Bearer ${clientToken}`)
+      .send({
+        eventType: 'corporate',
+        eventDate: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString(),
+        guestCount: 10,
+        services: [{ serviceId, notes: '' }],
+        budget: 300,
+      });
+    expect(create.status).toBe(201);
+    const messageBookingId = create.body.id;
+    // The vendor is snapshotted onto the booking's service item at creation time.
+    expect(create.body.services[0].vendorId).toBe(vendorIdForService);
+
+    // A vendor id that isn't actually on this booking is rejected.
+    const badVendor = await request(app)
+      .post(`/api/bookings/${messageBookingId}/messages/${new mongoose.Types.ObjectId().toString()}`)
+      .set('Authorization', `Bearer ${clientToken}`)
+      .send({ body: 'Hello?' });
+    expect(badVendor.status).toBe(400);
+    expect(badVendor.body.code).toBe('VENDOR_NOT_ON_BOOKING');
+
+    const fromClient = await request(app)
+      .post(`/api/bookings/${messageBookingId}/messages/${vendorIdForService}`)
+      .set('Authorization', `Bearer ${clientToken}`)
+      .send({ body: 'Hi, can you confirm the setup time?' });
+    expect(fromClient.status).toBe(201);
+    expect(fromClient.body.senderRole).toBe('client');
+
+    const fromVendor = await request(app)
+      .post(`/api/bookings/${messageBookingId}/messages/${vendorIdForService}`)
+      .set('Authorization', `Bearer ${vendorToken}`)
+      .send({ body: 'Sure, 2pm works great.' });
+    expect(fromVendor.status).toBe(201);
+    expect(fromVendor.body.senderRole).toBe('vendor');
+
+    const asClient = await request(app)
+      .get(`/api/bookings/${messageBookingId}/messages/${vendorIdForService}`)
+      .set('Authorization', `Bearer ${clientToken}`);
+    expect(asClient.status).toBe(200);
+    expect(asClient.body).toHaveLength(2);
+    expect(asClient.body[0].body).toBe('Hi, can you confirm the setup time?');
+    expect(asClient.body[1].body).toBe('Sure, 2pm works great.');
+
+    const asAdmin = await request(app)
+      .get(`/api/bookings/${messageBookingId}/messages/${vendorIdForService}`)
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(asAdmin.status).toBe(200);
+    expect(asAdmin.body).toHaveLength(2);
+
+    await Message.deleteMany({ bookingId: messageBookingId });
+    await Booking.deleteOne({ _id: messageBookingId });
   });
 
   it('lets the client cancel their own booking', async () => {

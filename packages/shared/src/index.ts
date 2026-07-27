@@ -7,4 +7,5 @@ export * from './schemas/booking.schema.js';
 export * from './schemas/task.schema.js';
 export * from './schemas/notification.schema.js';
 export * from './schemas/review.schema.js';
+export * from './schemas/message.schema.js';
 export * from './design-tokens.js';

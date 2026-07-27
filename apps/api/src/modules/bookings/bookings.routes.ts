@@ -11,6 +11,7 @@ import { requireRole } from '../../middleware/role.js';
 import { validate } from '../../middleware/validate.js';
 import { bookingTasksRouter } from '../tasks/tasks.routes.js';
 import { bookingReviewsRouter } from '../reviews/reviews.routes.js';
+import { bookingMessagesRouter } from '../messages/messages.routes.js';
 import * as bookingsController from './bookings.controller.js';
 
 const IdParamsSchema = z.object({ id: MongoIdSchema });
@@ -51,3 +52,6 @@ bookingsRouter.use('/:id/tasks', validate(IdParamsSchema, 'params'), bookingTask
 
 // Nested review thread for a specific booking - see modules/reviews.
 bookingsRouter.use('/:id/reviews', validate(IdParamsSchema, 'params'), bookingReviewsRouter);
+
+// Nested per-vendor message threads for a specific booking - see modules/messages.
+bookingsRouter.use('/:id/messages', validate(IdParamsSchema, 'params'), bookingMessagesRouter);
