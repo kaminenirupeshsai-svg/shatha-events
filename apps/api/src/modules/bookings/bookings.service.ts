@@ -7,6 +7,7 @@ import {
 import { Booking } from '../../models/Booking.js';
 import type { BookingDoc } from '../../models/Booking.js';
 import { Service } from '../../models/Service.js';
+import type { ServiceDoc } from '../../models/Service.js';
 import { User } from '../../models/User.js';
 import { AppError } from '../../lib/app-error.js';
 import { buildPaginatedResult, escapeRegex } from '../../lib/pagination.js';
@@ -41,6 +42,48 @@ function idOf(value: unknown): string {
   return String(value);
 }
 
+// A vendor is only genuinely committed to a date once a booking has been
+// confirmed (or is already underway) - 'pending'/'reviewed' are still just
+// requests under admin review, and multiple clients are allowed to inquire
+// about the same date until one is actually confirmed. Compared by calendar
+// day (UTC), not exact timestamp, since a vendor can't realistically serve
+// two full events on the same day regardless of the time each was booked for.
+async function assertNoVendorDoubleBooking(eventDate: Date, serviceDocs: ServiceDoc[]): Promise<void> {
+  const vendorIds = [...new Set(serviceDocs.map((s) => s.vendorId).filter(Boolean).map((id) => id!.toString()))];
+  if (vendorIds.length === 0) return;
+
+  const vendorServices = await Service.find({ vendorId: { $in: vendorIds } }).select('_id vendorId');
+  const vendorIdByServiceId = new Map(vendorServices.map((s) => [s._id.toString(), s.vendorId!.toString()]));
+
+  const dayStart = new Date(eventDate);
+  dayStart.setUTCHours(0, 0, 0, 0);
+  const dayEnd = new Date(dayStart);
+  dayEnd.setUTCDate(dayEnd.getUTCDate() + 1);
+
+  const sameDayBookings = await Booking.find({
+    status: { $in: ['confirmed', 'in_progress'] },
+    eventDate: { $gte: dayStart, $lt: dayEnd },
+    'services.serviceId': { $in: vendorServices.map((s) => s._id) },
+  }).select('services');
+
+  const conflictingVendorIds = new Set<string>();
+  for (const booking of sameDayBookings) {
+    for (const item of booking.services) {
+      const vendorId = vendorIdByServiceId.get(item.serviceId.toString());
+      if (vendorId && vendorIds.includes(vendorId)) conflictingVendorIds.add(vendorId);
+    }
+  }
+
+  if (conflictingVendorIds.size === 0) return;
+
+  const conflictingVendors = await User.find({ _id: { $in: [...conflictingVendorIds] } }).select('name');
+  const names = conflictingVendors.map((v) => v.name).join(', ');
+  throw AppError.conflict(
+    `${names} already ${conflictingVendors.length > 1 ? 'have' : 'has'} a confirmed booking on this date. Choose a different date or remove that vendor's service.`,
+    'VENDOR_DATE_CONFLICT',
+  );
+}
+
 export async function createBooking(client: AuthUser, input: CreateBookingInput) {
   const account = await User.findById(client.id).select('emailVerified');
   if (!account?.emailVerified) {
@@ -56,6 +99,8 @@ export async function createBooking(client: AuthUser, input: CreateBookingInput)
     );
   }
   const titleById = new Map(serviceDocs.map((s) => [s._id.toString(), s.title]));
+
+  await assertNoVendorDoubleBooking(input.eventDate, serviceDocs);
 
   const doc = await Booking.create({
     clientId: client.id,

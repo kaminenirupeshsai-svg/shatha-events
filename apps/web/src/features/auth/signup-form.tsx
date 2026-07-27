@@ -164,6 +164,18 @@ export function SignupForm() {
       <Button type="submit" className="w-full" isLoading={signup.isPending}>
         Create account
       </Button>
+
+      <p className="text-center text-xs text-ink-soft">
+        By creating an account, you agree to our{' '}
+        <Link href="/terms" className="font-medium text-emerald hover:underline">
+          Terms of Service
+        </Link>{' '}
+        and{' '}
+        <Link href="/privacy" className="font-medium text-emerald hover:underline">
+          Privacy Policy
+        </Link>
+        .
+      </p>
     </form>
   );
 }

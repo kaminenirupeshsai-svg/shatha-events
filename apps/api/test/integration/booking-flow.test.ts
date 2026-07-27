@@ -436,6 +436,64 @@ describe.skipIf(!mongoAvailable)('booking lifecycle (integration, requires Mongo
     expect(res.status).toBe(403);
   });
 
+  it('blocks a second booking against a vendor already confirmed for the same date, but allows a different date', async () => {
+    const conflictDate = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString();
+    const otherDate = new Date(Date.now() + 61 * 24 * 60 * 60 * 1000).toISOString();
+
+    const first = await request(app)
+      .post('/api/bookings')
+      .set('Authorization', `Bearer ${clientToken}`)
+      .send({
+        eventType: 'corporate',
+        eventDate: conflictDate,
+        guestCount: 20,
+        services: [{ serviceId, notes: '' }],
+        budget: 1000,
+      });
+    expect(first.status).toBe(201);
+    const firstBookingId = first.body.id;
+
+    // Only a genuinely confirmed (or in-progress) booking should block a new
+    // request - move it past 'reviewed' first.
+    await request(app)
+      .patch(`/api/bookings/${firstBookingId}/status`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ status: 'reviewed' });
+    const confirm = await request(app)
+      .patch(`/api/bookings/${firstBookingId}/status`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ status: 'confirmed' });
+    expect(confirm.status).toBe(200);
+    expect(confirm.body.status).toBe('confirmed');
+
+    const conflict = await request(app)
+      .post('/api/bookings')
+      .set('Authorization', `Bearer ${clientToken}`)
+      .send({
+        eventType: 'birthday',
+        eventDate: conflictDate,
+        guestCount: 5,
+        services: [{ serviceId, notes: '' }],
+        budget: 200,
+      });
+    expect(conflict.status).toBe(409);
+    expect(conflict.body.code).toBe('VENDOR_DATE_CONFLICT');
+
+    const noConflict = await request(app)
+      .post('/api/bookings')
+      .set('Authorization', `Bearer ${clientToken}`)
+      .send({
+        eventType: 'birthday',
+        eventDate: otherDate,
+        guestCount: 5,
+        services: [{ serviceId, notes: '' }],
+        budget: 200,
+      });
+    expect(noConflict.status).toBe(201);
+
+    await Booking.deleteMany({ _id: { $in: [firstBookingId, noConflict.body.id] } });
+  });
+
   it('lets the client cancel their own booking', async () => {
     const res = await request(app)
       .patch(`/api/bookings/${bookingId}/status`)
