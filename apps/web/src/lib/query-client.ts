@@ -1,7 +1,18 @@
-import { QueryClient } from '@tanstack/react-query';
+import { QueryCache, QueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 
 export function createQueryClient() {
   return new QueryClient({
+    // Mutations already toast their own errors at the call site; queries
+    // didn't, so a failed fetch used to render silently as an empty state
+    // (a list page showing "No bookings found" when the request actually
+    // 404/500'd, with nothing telling the user it wasn't real). This is the
+    // one place that covers every query in the app at once.
+    queryCache: new QueryCache({
+      onError: (error) => {
+        toast.error(error instanceof Error ? error.message : 'Something went wrong loading this page.');
+      },
+    }),
     defaultOptions: {
       queries: {
         staleTime: 30 * 1000,

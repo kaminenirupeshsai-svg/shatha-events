@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { CalendarCheck, Clock, Package, PlusCircle, ShieldAlert, TrendingUp } from 'lucide-react';
+import { AlertTriangle, CalendarCheck, Clock, Package, PlusCircle, ShieldAlert, TrendingUp } from 'lucide-react';
 import { PageHeader } from '@/components/shared/page-header';
 import { BookingCard } from '@/components/shared/booking-card';
 import { StatCard } from '@/components/charts/stat-card';
@@ -16,9 +16,10 @@ import { useMe } from '@/features/auth/hooks';
 
 export default function VendorDashboardPage() {
   const { data: user } = useMe();
-  const { data: bookingsPage, isLoading: bookingsLoading } = useVendorBookings({ limit: 50, sort: 'newest' });
-  const { data: servicesPage, isLoading: servicesLoading } = useServices({ vendorId: user?.id, limit: 100 });
+  const { data: bookingsPage, isLoading: bookingsLoading, isError: bookingsError } = useVendorBookings({ limit: 50, sort: 'newest' });
+  const { data: servicesPage, isLoading: servicesLoading, isError: servicesError } = useServices({ vendorId: user?.id, limit: 100 });
 
+  const hasError = bookingsError || servicesError;
   const bookings = bookingsPage?.items ?? [];
   const activeServices = (servicesPage?.items ?? []).filter((s) => s.isActive).length;
   const inProgress = bookings.filter((b) => b.status === 'in_progress' || b.status === 'confirmed').length;
@@ -57,45 +58,51 @@ export default function VendorDashboardPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        {bookingsLoading || servicesLoading ? (
-          <>
-            <StatCardSkeleton />
-            <StatCardSkeleton />
-            <StatCardSkeleton />
-          </>
-        ) : (
-          <>
-            <StatCard label="Active listings" value={activeServices} icon={Package} />
-            <StatCard label="Bookings referencing you" value={bookingsPage?.total ?? bookings.length} icon={CalendarCheck} />
-            <StatCard label="In progress" value={inProgress} icon={TrendingUp} />
-          </>
-        )}
-      </div>
-
-      <div>
-        <h2 className="mb-4 font-display text-lg font-semibold text-ink">Recent bookings</h2>
-        {bookingsLoading ? (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <BookingCardSkeleton />
-            <BookingCardSkeleton />
+      {hasError ? (
+        <EmptyState icon={AlertTriangle} title="Couldn't load your dashboard" description="Something went wrong. Try refreshing the page." />
+      ) : (
+        <>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            {bookingsLoading || servicesLoading ? (
+              <>
+                <StatCardSkeleton />
+                <StatCardSkeleton />
+                <StatCardSkeleton />
+              </>
+            ) : (
+              <>
+                <StatCard label="Active listings" value={activeServices} icon={Package} />
+                <StatCard label="Bookings referencing you" value={bookingsPage?.total ?? bookings.length} icon={CalendarCheck} />
+                <StatCard label="In progress" value={inProgress} icon={TrendingUp} />
+              </>
+            )}
           </div>
-        ) : recent.length === 0 ? (
-          <EmptyState
-            icon={CalendarCheck}
-            title="No bookings yet"
-            description="Once a client books one of your services, it will show up here."
-          />
-        ) : (
-          <StaggerReveal className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {recent.map((booking) => (
-              <StaggerItem key={booking.id}>
-                <BookingCard booking={booking} />
-              </StaggerItem>
-            ))}
-          </StaggerReveal>
-        )}
-      </div>
+
+          <div>
+            <h2 className="mb-4 font-display text-lg font-semibold text-ink">Recent bookings</h2>
+            {bookingsLoading ? (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <BookingCardSkeleton />
+                <BookingCardSkeleton />
+              </div>
+            ) : recent.length === 0 ? (
+              <EmptyState
+                icon={CalendarCheck}
+                title="No bookings yet"
+                description="Once a client books one of your services, it will show up here."
+              />
+            ) : (
+              <StaggerReveal className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {recent.map((booking) => (
+                  <StaggerItem key={booking.id}>
+                    <BookingCard booking={booking} />
+                  </StaggerItem>
+                ))}
+              </StaggerReveal>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }

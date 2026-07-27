@@ -56,7 +56,10 @@ export default function BookingDetailPage() {
   }
 
   const canCancel = user?.role === 'client' && BOOKING_STATUS_TRANSITIONS[booking.status].includes('cancelled');
-  const backHref = user?.role === 'admin' ? '/admin/bookings' : '/bookings';
+  // Vendors have no standalone bookings list (only /api/bookings/my exists,
+  // and it's client-only) - they reach a booking's detail page from a
+  // BookingCard on their dashboard, so that's where "back" should return to.
+  const backHref = user?.role === 'admin' ? '/admin/bookings' : user?.role === 'vendor' ? '/dashboard/vendor' : '/bookings';
 
   return (
     <div className="mx-auto max-w-3xl">

@@ -14,6 +14,12 @@ import type { NextRequest } from 'next/server';
 // to /login?next=/services and land there right after signing in.
 const PROTECTED_PREFIX = '/dashboard';
 const APP_PREFIXES = ['/dashboard', '/bookings', '/services', '/profile', '/settings', '/notifications', '/admin'];
+// /reset-password is deliberately NOT in this list (unlike the other auth
+// pages) - someone can be legitimately logged in on one device/tab and still
+// need to complete a reset from an emailed link (e.g. they suspect the
+// account is compromised and are locking out whoever else has a session).
+// Bouncing them straight to the dashboard before they can act on the link
+// would be actively harmful in that case, not just redundant.
 const AUTH_PAGES = ['/login', '/signup', '/forgot-password'];
 
 export function middleware(request: NextRequest) {

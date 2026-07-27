@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { CalendarCheck, PlusCircle, Search } from 'lucide-react';
+import { AlertTriangle, CalendarCheck, PlusCircle, Search } from 'lucide-react';
 import type { BookingStatus } from '@app/shared';
 import { PageHeader } from '@/components/shared/page-header';
 import { BookingCard } from '@/components/shared/booking-card';
@@ -32,7 +32,7 @@ export default function MyBookingsPage() {
   const [page, setPage] = useState(1);
   const debouncedSearch = useDebouncedValue(search, 400);
 
-  const { data, isLoading } = useMyBookings({
+  const { data, isLoading, isError } = useMyBookings({
     q: debouncedSearch || undefined,
     status: status === 'all' ? undefined : status,
     page,
@@ -93,6 +93,8 @@ export default function MyBookingsPage() {
             <BookingCardSkeleton key={i} />
           ))}
         </div>
+      ) : isError ? (
+        <EmptyState icon={AlertTriangle} title="Couldn't load your bookings" description="Something went wrong. Try refreshing the page." />
       ) : bookings.length === 0 ? (
         <EmptyState
           icon={CalendarCheck}

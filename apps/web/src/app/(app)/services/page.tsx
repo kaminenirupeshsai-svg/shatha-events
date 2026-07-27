@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { Clock, Pencil, PlusCircle, Search, ShieldAlert, Trash2 } from 'lucide-react';
+import { AlertTriangle, Clock, Pencil, PlusCircle, Search, ShieldAlert, Trash2 } from 'lucide-react';
 import {
   SERVICE_CATEGORY_LABELS,
   ServiceCategorySchema,
@@ -61,7 +61,7 @@ export default function ServicesPage() {
     [debouncedSearch, category, sort, page, isVendor, user?.id],
   );
 
-  const { data, isLoading } = useServices(query);
+  const { data, isLoading, isError } = useServices(query);
   const services = data?.items ?? [];
 
   // Pending/rejected vendors have no listings and can't create any yet -
@@ -152,6 +152,8 @@ export default function ServicesPage() {
             <ServiceCardSkeleton key={i} />
           ))}
         </div>
+      ) : isError ? (
+        <EmptyState icon={AlertTriangle} title="Couldn't load services" description="Something went wrong. Try refreshing the page." />
       ) : services.length === 0 ? (
         <EmptyState
           icon={Search}

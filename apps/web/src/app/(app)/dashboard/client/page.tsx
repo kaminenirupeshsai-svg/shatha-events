@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { CalendarCheck, Clock, PlusCircle, Sparkles } from 'lucide-react';
+import { AlertTriangle, CalendarCheck, Clock, PlusCircle, Sparkles } from 'lucide-react';
 import { PageHeader } from '@/components/shared/page-header';
 import { BookingCard } from '@/components/shared/booking-card';
 import { StatCard } from '@/components/charts/stat-card';
@@ -15,7 +15,7 @@ import { useMe } from '@/features/auth/hooks';
 
 export default function ClientDashboardPage() {
   const { data: user } = useMe();
-  const { data, isLoading } = useMyBookings({ limit: 50, sort: 'newest' });
+  const { data, isLoading, isError } = useMyBookings({ limit: 50, sort: 'newest' });
   const bookings = data?.items ?? [];
 
   const upcoming = bookings.filter(
@@ -42,56 +42,62 @@ export default function ClientDashboardPage() {
 
       {user && !user.emailVerified && <VerificationBanner email={user.email} />}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        {isLoading ? (
-          <>
-            <StatCardSkeleton />
-            <StatCardSkeleton />
-            <StatCardSkeleton />
-          </>
-        ) : (
-          <>
-            <StatCard label="Total bookings" value={data?.total ?? bookings.length} icon={CalendarCheck} />
-            <StatCard label="Upcoming events" value={upcoming} icon={Sparkles} />
-            <StatCard label="Awaiting review" value={pendingReview} icon={Clock} />
-          </>
-        )}
-      </div>
-
-      <div>
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="font-display text-lg font-semibold text-ink">Recent activity</h2>
-          <Link href="/bookings" className="text-sm font-medium text-emerald hover:underline">
-            View all
-          </Link>
-        </div>
-
-        {isLoading ? (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <BookingCardSkeleton />
-            <BookingCardSkeleton />
+      {isError ? (
+        <EmptyState icon={AlertTriangle} title="Couldn't load your dashboard" description="Something went wrong. Try refreshing the page." />
+      ) : (
+        <>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            {isLoading ? (
+              <>
+                <StatCardSkeleton />
+                <StatCardSkeleton />
+                <StatCardSkeleton />
+              </>
+            ) : (
+              <>
+                <StatCard label="Total bookings" value={data?.total ?? bookings.length} icon={CalendarCheck} />
+                <StatCard label="Upcoming events" value={upcoming} icon={Sparkles} />
+                <StatCard label="Awaiting review" value={pendingReview} icon={Clock} />
+              </>
+            )}
           </div>
-        ) : recent.length === 0 ? (
-          <EmptyState
-            icon={CalendarCheck}
-            title="No bookings yet"
-            description="Submit your first booking request to start planning your event."
-            action={
-              <Button asChild>
-                <Link href="/bookings/new">Create a booking</Link>
-              </Button>
-            }
-          />
-        ) : (
-          <StaggerReveal className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {recent.map((booking) => (
-              <StaggerItem key={booking.id}>
-                <BookingCard booking={booking} />
-              </StaggerItem>
-            ))}
-          </StaggerReveal>
-        )}
-      </div>
+
+          <div>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="font-display text-lg font-semibold text-ink">Recent activity</h2>
+              <Link href="/bookings" className="text-sm font-medium text-emerald hover:underline">
+                View all
+              </Link>
+            </div>
+
+            {isLoading ? (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <BookingCardSkeleton />
+                <BookingCardSkeleton />
+              </div>
+            ) : recent.length === 0 ? (
+              <EmptyState
+                icon={CalendarCheck}
+                title="No bookings yet"
+                description="Submit your first booking request to start planning your event."
+                action={
+                  <Button asChild>
+                    <Link href="/bookings/new">Create a booking</Link>
+                  </Button>
+                }
+              />
+            ) : (
+              <StaggerReveal className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {recent.map((booking) => (
+                  <StaggerItem key={booking.id}>
+                    <BookingCard booking={booking} />
+                  </StaggerItem>
+                ))}
+              </StaggerReveal>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }

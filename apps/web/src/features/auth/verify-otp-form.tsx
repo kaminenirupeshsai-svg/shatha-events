@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { useForm, type FieldErrors } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { VerifyEmailInputSchema } from '@app/shared';
@@ -13,6 +14,8 @@ interface OtpOnlyInput {
   otp: string;
 }
 
+const RESEND_COOLDOWN_SECONDS = 30;
+
 /**
  * Reusable 6-digit code entry, used right after signup (email already known)
  * and inline on the login form when a login attempt is blocked for being
@@ -21,6 +24,13 @@ interface OtpOnlyInput {
 export function VerifyOtpForm({ email, onVerified }: { email: string; onVerified: () => void }) {
   const verifyEmail = useVerifyEmail();
   const resend = useResendVerification();
+  const [cooldown, setCooldown] = useState(0);
+
+  useEffect(() => {
+    if (cooldown === 0) return;
+    const timer = setInterval(() => setCooldown((s) => Math.max(0, s - 1)), 1000);
+    return () => clearInterval(timer);
+  }, [cooldown]);
 
   const {
     register,
@@ -38,8 +48,14 @@ export function VerifyOtpForm({ email, onVerified }: { email: string; onVerified
   };
 
   const onSubmit = handleSubmit((values) => {
+    if (verifyEmail.isPending) return;
     verifyEmail.mutate({ email, otp: values.otp }, { onSuccess: onVerified });
   }, onInvalid);
+
+  function handleResend() {
+    if (resend.isPending || cooldown > 0) return;
+    resend.mutate(email, { onSuccess: () => setCooldown(RESEND_COOLDOWN_SECONDS) });
+  }
 
   return (
     <form onSubmit={onSubmit} noValidate className="space-y-4">
@@ -54,6 +70,7 @@ export function VerifyOtpForm({ email, onVerified }: { email: string; onVerified
           className="text-center font-mono text-lg tracking-[0.5em]"
           invalid={Boolean(errors.otp)}
           aria-describedby={errors.otp ? 'otp-error' : undefined}
+          disabled={verifyEmail.isPending}
           {...register('otp')}
         />
         {errors.otp && (
@@ -72,9 +89,10 @@ export function VerifyOtpForm({ email, onVerified }: { email: string; onVerified
           variant="ghost"
           size="sm"
           isLoading={resend.isPending}
-          onClick={() => resend.mutate(email)}
+          disabled={resend.isPending || cooldown > 0}
+          onClick={handleResend}
         >
-          Resend code
+          {cooldown > 0 ? `Resend code (${cooldown}s)` : 'Resend code'}
         </Button>
       </div>
     </form>
