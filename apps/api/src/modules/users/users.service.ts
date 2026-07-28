@@ -129,19 +129,23 @@ export async function setUserActive(actorId: string, userId: string, isActive: b
   const user = await User.findById(userId);
   if (!user) throw AppError.notFound('User not found');
 
+  user.isActive = isActive;
+  await user.save();
+
+  // Checked AFTER writing, not before - two concurrent requests each
+  // deactivating a *different* admin could both see "one other active admin"
+  // under a before-write check and both succeed, leaving zero. Verifying the
+  // real post-write count (which reflects whatever the other request already
+  // committed) and reverting if it's now empty closes that race regardless
+  // of which request's write actually lands first.
   if (!isActive && user.role === 'admin') {
-    const otherActiveAdmins = await User.countDocuments({
-      role: 'admin',
-      isActive: { $ne: false },
-      _id: { $ne: user._id },
-    });
-    if (otherActiveAdmins === 0) {
+    const remainingActiveAdmins = await User.countDocuments({ role: 'admin', isActive: { $ne: false } });
+    if (remainingActiveAdmins === 0) {
+      user.isActive = true;
+      await user.save();
       throw AppError.badRequest('Cannot deactivate the last remaining admin account', 'LAST_ADMIN');
     }
   }
-
-  user.isActive = isActive;
-  await user.save();
 
   if (!isActive) {
     // Block them from refreshing their way to a new session; an already-issued
