@@ -43,6 +43,7 @@ export const queryKeys = {
   // mark-read/mark-all-read already catch this too, with no extra wiring.
   unreadNotificationCount: ['notifications', 'unread-count'] as const,
   vendors: (query?: Record<string, unknown>) => ['vendors', query ?? {}] as const,
+  allUsers: (query?: Record<string, unknown>) => ['users', 'all', query ?? {}] as const,
   adminStats: ['admin', 'stats'] as const,
   bookingReviews: (bookingId: string) => ['reviews', 'booking', bookingId] as const,
   serviceReviews: (serviceId: string, query?: Record<string, unknown>) =>

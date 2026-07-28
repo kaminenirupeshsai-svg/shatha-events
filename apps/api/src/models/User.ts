@@ -21,6 +21,11 @@ const UserSchema = new Schema(
     avatarUrl: { type: String, default: null },
     theme: { type: String, enum: ['light', 'dark', 'system'], default: 'system' },
     notifyEmail: { type: Boolean, default: true },
+    // Admin-controlled deactivation (see users.service.ts setUserActive) -
+    // blocks login and revokes existing sessions, but never deletes the
+    // account or anything it's connected to (bookings/reviews/messages keep
+    // showing this user's name correctly for whoever else was involved).
+    isActive: { type: Boolean, default: true },
     passwordResetTokenHash: { type: String, default: null, select: false },
     passwordResetExpiresAt: { type: Date, default: null, select: false },
     // Defaults true so every account that already exists is unaffected -

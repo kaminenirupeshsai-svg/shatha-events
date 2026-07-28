@@ -62,6 +62,7 @@ describe.skipIf(!mongoAvailable)('booking lifecycle (integration, requires Mongo
   let clientId = '';
   let vendorToken = '';
   let adminToken = '';
+  let adminId = '';
   let serviceId = '';
   let bookingId = '';
   let refreshCookie = '';
@@ -74,12 +75,13 @@ describe.skipIf(!mongoAvailable)('booking lifecycle (integration, requires Mongo
     // client/vendor) - seed one directly, same as the real onboarding path.
     // Created straight in Mongo (not through signup()), so it gets the
     // schema default emailVerified: true and can log in immediately.
-    await User.create({
+    const admin = await User.create({
       name: 'Integration Test Admin',
       email: adminEmail,
       passwordHash: await bcrypt.hash(password, 4),
       role: 'admin',
     });
+    adminId = admin._id.toString();
   });
 
   afterAll(async () => {
@@ -627,6 +629,111 @@ describe.skipIf(!mongoAvailable)('booking lifecycle (integration, requires Mongo
 
     await Message.deleteMany({ bookingId: messageBookingId });
     await Booking.deleteOne({ _id: messageBookingId });
+  });
+
+  it('lets an admin deactivate and reactivate a vendor, blocking login, revoking sessions, and hiding their services', async () => {
+    const deactEmail = `it-deact-vendor-${stamp}@example.com`;
+    const signup = await request(app)
+      .post('/api/auth/signup')
+      .send({ name: 'Deactivation Test Vendor', email: deactEmail, password, role: 'vendor' });
+    expect(signup.status).toBe(201);
+
+    const otp = latestOtpFor(sendSpy, deactEmail);
+    await request(app).post('/api/auth/verify-email').send({ email: deactEmail, otp });
+
+    let login = await request(app).post('/api/auth/login').send({ email: deactEmail, password });
+    const deactVendorId = login.body.user.id;
+    let deactVendorToken = login.body.accessToken;
+
+    await request(app)
+      .patch(`/api/users/${deactVendorId}/vendor-status`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ status: 'approved' });
+
+    const serviceInput = {
+      title: 'Deactivation Test Service',
+      category: 'photography_film',
+      description: 'A service created purely to test the deactivation flow.',
+      priceRange: { min: 50, max: 150 },
+    };
+    const createService = await request(app)
+      .post('/api/services')
+      .set('Authorization', `Bearer ${deactVendorToken}`)
+      .send(serviceInput);
+    expect(createService.status).toBe(201);
+    const deactServiceId = createService.body.id;
+
+    // Publicly visible while active.
+    const beforeList = await request(app).get('/api/services').query({ q: 'Deactivation Test Service' });
+    expect(beforeList.body.items.some((s: { id: string }) => s.id === deactServiceId)).toBe(true);
+
+    const deactivate = await request(app)
+      .patch(`/api/users/${deactVendorId}/active`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ isActive: false });
+    expect(deactivate.status).toBe(200);
+    expect(deactivate.body.isActive).toBe(false);
+
+    const blockedLogin = await request(app).post('/api/auth/login').send({ email: deactEmail, password });
+    expect(blockedLogin.status).toBe(403);
+    expect(blockedLogin.body.code).toBe('ACCOUNT_DEACTIVATED');
+
+    // The service is hidden from the public catalog once its vendor is deactivated.
+    const afterList = await request(app).get('/api/services').query({ q: 'Deactivation Test Service' });
+    expect(afterList.body.items.some((s: { id: string }) => s.id === deactServiceId)).toBe(false);
+
+    const reactivate = await request(app)
+      .patch(`/api/users/${deactVendorId}/active`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ isActive: true });
+    expect(reactivate.status).toBe(200);
+    expect(reactivate.body.isActive).toBe(true);
+
+    login = await request(app).post('/api/auth/login').send({ email: deactEmail, password });
+    expect(login.status).toBe(200);
+    deactVendorToken = login.body.accessToken;
+
+    await Service.deleteOne({ _id: deactServiceId });
+    await User.deleteOne({ _id: deactVendorId });
+  });
+
+  it('blocks an admin from deactivating themselves or the last remaining active admin', async () => {
+    const selfDeactivate = await request(app)
+      .patch(`/api/users/${adminId}/active`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ isActive: false });
+    expect(selfDeactivate.status).toBe(400);
+    expect(selfDeactivate.body.code).toBe('CANNOT_DEACTIVATE_SELF');
+
+    const adminTwoEmail = `it-admin-two-${stamp}@example.com`;
+    const adminTwo = await User.create({
+      name: 'Integration Test Admin Two',
+      email: adminTwoEmail,
+      passwordHash: await bcrypt.hash(password, 4),
+      role: 'admin',
+    });
+    const adminTwoLogin = await request(app).post('/api/auth/login').send({ email: adminTwoEmail, password });
+    const adminTwoToken = adminTwoLogin.body.accessToken;
+
+    // Two active admins exist right now, so deactivating one is fine.
+    const deactivateTwo = await request(app)
+      .patch(`/api/users/${adminTwo._id.toString()}/active`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ isActive: false });
+    expect(deactivateTwo.status).toBe(200);
+
+    // Now only the primary admin is active. adminTwo's access token is still
+    // cryptographically valid (deactivation revokes refresh tokens, not
+    // already-issued access tokens) - using it to target the one remaining
+    // active admin must still be blocked.
+    const lastAdminAttempt = await request(app)
+      .patch(`/api/users/${adminId}/active`)
+      .set('Authorization', `Bearer ${adminTwoToken}`)
+      .send({ isActive: false });
+    expect(lastAdminAttempt.status).toBe(400);
+    expect(lastAdminAttempt.body.code).toBe('LAST_ADMIN');
+
+    await User.deleteOne({ _id: adminTwo._id });
   });
 
   it('lets the client cancel their own booking', async () => {

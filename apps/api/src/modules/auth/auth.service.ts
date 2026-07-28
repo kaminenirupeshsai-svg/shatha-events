@@ -137,6 +137,14 @@ export async function login(input: LoginInput): Promise<AuthResult> {
   if (!valid) {
     throw AppError.unauthorized('Incorrect email or password', 'INVALID_CREDENTIALS');
   }
+  // Checked only after the password is confirmed correct, so probing random
+  // emails never reveals whether an account has been deactivated.
+  if (user.isActive === false) {
+    throw AppError.forbidden(
+      'This account has been deactivated. Contact support if you believe this is a mistake.',
+      'ACCOUNT_DEACTIVATED',
+    );
+  }
   if (!user.emailVerified) {
     throw AppError.forbidden(
       'Please verify your email before logging in — check your inbox for the code we sent when you signed up.',

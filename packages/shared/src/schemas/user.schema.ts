@@ -18,6 +18,7 @@ export const UserDtoSchema = z.object({
   avatarUrl: z.string().nullable(),
   theme: z.enum(['light', 'dark', 'system']),
   notifyEmail: z.boolean(),
+  isActive: z.boolean(),
   createdAt: z.string(),
 });
 export type UserDto = z.infer<typeof UserDtoSchema>;
@@ -37,6 +38,11 @@ export const UpdateVendorStatusInputSchema = z.object({
   status: z.enum(['approved', 'rejected']),
 });
 export type UpdateVendorStatusInput = z.infer<typeof UpdateVendorStatusInputSchema>;
+
+export const UpdateUserActiveInputSchema = z.object({
+  isActive: z.boolean(),
+});
+export type UpdateUserActiveInput = z.infer<typeof UpdateUserActiveInputSchema>;
 
 export const UpdateProfileInputSchema = z.object({
   name: z.string().trim().min(2, 'Name is too short').max(80).optional(),

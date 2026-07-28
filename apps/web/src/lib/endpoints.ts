@@ -20,8 +20,9 @@ export const endpoints = {
     updatePassword: '/api/users/me/password',
     updateSettings: '/api/users/me/settings',
     avatar: '/api/users/me/avatar',
-    list: '/api/users', // ?role=vendor for the admin vendor directory
+    list: '/api/users', // ?role=vendor for the admin vendor directory; admin omits role for every user
     vendorStatus: (id: string) => `/api/users/${id}/vendor-status`,
+    setActive: (id: string) => `/api/users/${id}/active`,
   },
   services: {
     list: '/api/services',

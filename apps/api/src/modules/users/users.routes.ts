@@ -6,6 +6,7 @@ import {
   UpdatePasswordInputSchema,
   UpdateProfileInputSchema,
   UpdateSettingsInputSchema,
+  UpdateUserActiveInputSchema,
   UpdateVendorStatusInputSchema,
   UserRoleSchema,
 } from '@app/shared';
@@ -44,4 +45,11 @@ usersRouter.patch(
   validate(z.object({ id: MongoIdSchema }), 'params'),
   validate(UpdateVendorStatusInputSchema),
   usersController.updateVendorStatus,
+);
+usersRouter.patch(
+  '/:id/active',
+  requireRole('admin'),
+  validate(z.object({ id: MongoIdSchema }), 'params'),
+  validate(UpdateUserActiveInputSchema),
+  usersController.setActive,
 );

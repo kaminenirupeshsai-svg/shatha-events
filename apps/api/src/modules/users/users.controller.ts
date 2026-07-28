@@ -73,3 +73,8 @@ export const updateVendorStatus = asyncHandler(async (req: Request, res: Respons
   const user = await usersService.updateVendorStatus(req.params.id as string, req.body.status);
   res.status(200).json(user);
 });
+
+export const setActive = asyncHandler(async (req: Request, res: Response) => {
+  const user = await usersService.setUserActive(req.user!.id, req.params.id as string, req.body.isActive);
+  res.status(200).json(user);
+});

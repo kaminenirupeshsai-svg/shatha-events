@@ -7,6 +7,8 @@ import type {
   VendorStatus,
 } from '@app/shared';
 import { User } from '../../models/User.js';
+import { Service } from '../../models/Service.js';
+import { RefreshToken } from '../../models/RefreshToken.js';
 import { AppError } from '../../lib/app-error.js';
 import { buildPaginatedResult, escapeRegex, type PaginatedResult } from '../../lib/pagination.js';
 import { createNotification } from '../notifications/notifications.service.js';
@@ -108,6 +110,51 @@ export async function updateVendorStatus(userId: string, status: 'approved' | 'r
       ? 'Your vendor account has been approved - you can now list services.'
       : 'Your vendor account application was not approved.';
   await createNotification({ userId: user._id.toString(), type: 'vendor_status_changed', message });
+
+  return toUserDto(user);
+}
+
+/**
+ * Deactivation, not deletion - the account is blocked from logging in (and
+ * its sessions revoked) but the User document, and everything referencing
+ * it (bookings, reviews, messages), stays intact. Deleting it outright
+ * would corrupt other people's history (e.g. a vendor's view of a booking
+ * with a deleted client) - see the plan discussion for why this was chosen
+ * over a hard delete.
+ */
+export async function setUserActive(actorId: string, userId: string, isActive: boolean) {
+  if (userId === actorId) {
+    throw AppError.badRequest('You cannot deactivate your own account', 'CANNOT_DEACTIVATE_SELF');
+  }
+  const user = await User.findById(userId);
+  if (!user) throw AppError.notFound('User not found');
+
+  if (!isActive && user.role === 'admin') {
+    const otherActiveAdmins = await User.countDocuments({
+      role: 'admin',
+      isActive: { $ne: false },
+      _id: { $ne: user._id },
+    });
+    if (otherActiveAdmins === 0) {
+      throw AppError.badRequest('Cannot deactivate the last remaining admin account', 'LAST_ADMIN');
+    }
+  }
+
+  user.isActive = isActive;
+  await user.save();
+
+  if (!isActive) {
+    // Block them from refreshing their way to a new session; an already-issued
+    // access token still expires naturally on its own short TTL (same
+    // trade-off already accepted for password resets - see auth.service.ts).
+    await RefreshToken.updateMany({ userId: user._id, revokedAt: null }, { revokedAt: new Date() });
+    // A deactivated vendor's listings disappear from the public catalog too,
+    // not just their own account - reactivating leaves services as-is; the
+    // vendor consciously re-enables whichever listings they want back.
+    if (user.role === 'vendor') {
+      await Service.updateMany({ vendorId: user._id }, { isActive: false });
+    }
+  }
 
   return toUserDto(user);
 }

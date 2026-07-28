@@ -14,6 +14,7 @@ export function toUserDto(user: UserDoc): UserDto {
     avatarUrl: user.avatarUrl ?? null,
     theme: (user.theme ?? 'system') as UserDto['theme'],
     notifyEmail: user.notifyEmail ?? true,
+    isActive: user.isActive ?? true,
     createdAt: (user.createdAt as unknown as Date).toISOString(),
   };
 }

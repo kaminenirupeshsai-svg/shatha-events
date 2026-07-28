@@ -10,6 +10,7 @@ import {
   Settings,
   Store,
   UserRound,
+  Users,
 } from 'lucide-react';
 import type { UserRole } from '@app/shared';
 import { cn } from '@/lib/utils';
@@ -41,6 +42,7 @@ export const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
     { href: '/admin/bookings', label: 'Bookings', icon: CalendarCheck },
     { href: '/admin/services', label: 'Services', icon: Package },
     { href: '/admin/vendors', label: 'Vendors', icon: Store },
+    { href: '/admin/users', label: 'Users', icon: Users },
     { href: '/notifications', label: 'Notifications', icon: ListChecks },
     { href: '/profile', label: 'Profile', icon: UserRound },
     { href: '/settings', label: 'Settings', icon: Settings },
